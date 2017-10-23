@@ -66,17 +66,30 @@ int portal_msg_chain2msg(mln_chain_t **c, portal_message_t *msg)
     mln_u64_t tmpseq;
 
     switch (msg->stage) {
-        case PORTAL_MSG_STAGE_SEQ:
-            wrt = sizeof(msg->seq) - msg->left;
-            rc = __portal_msg_getBytes(c, (mln_u8ptr_t)(&(msg->seq))+wrt, &(msg->left));
+        case PORTAL_MSG_STAGE_SEQHIGH:
+            wrt = sizeof(msg->seqHigh) - msg->left;
+            rc = __portal_msg_getBytes(c, (mln_u8ptr_t)(&(msg->seqHigh))+wrt, &(msg->left));
             if (rc != PORTAL_MSG_RET_OK) {
                 if (rc == PORTAL_MSG_RET_ERROR)
                     portal_msg_init(msg);
                 return rc;
             }
-            tmpseq = msg->seq;
+            tmpseq = msg->seqHigh;
             tmp = (mln_u8ptr_t)(&tmpseq);
-            portal_littleendian_decode(tmp, sizeof(tmpseq), msg->seq);
+            portal_littleendian_decode(tmp, sizeof(tmpseq), msg->seqHigh);
+            msg->stage = PORTAL_MSG_STAGE_SEQLOW;
+            msg->left = sizeof(msg->seqLow);
+        case PORTAL_MSG_STAGE_SEQLOW:
+            wrt = sizeof(msg->seqLow) - msg->left;
+            rc = __portal_msg_getBytes(c, (mln_u8ptr_t)(&(msg->seqLow))+wrt, &(msg->left));
+            if (rc != PORTAL_MSG_RET_OK) {
+                if (rc == PORTAL_MSG_RET_ERROR)
+                    portal_msg_init(msg);
+                return rc;
+            }
+            tmpseq = msg->seqLow;
+            tmp = (mln_u8ptr_t)(&tmpseq);
+            portal_littleendian_decode(tmp, sizeof(tmpseq), msg->seqLow);
             msg->stage = PORTAL_MSG_STAGE_TYPE;
             msg->left = sizeof(msg->type);
         case PORTAL_MSG_STAGE_TYPE:
@@ -141,8 +154,8 @@ int portal_msg_chain2msg(mln_chain_t **c, portal_message_t *msg)
                     portal_msg_init(msg);
                 return rc;
             }
-            msg->stage = PORTAL_MSG_STAGE_SEQ;
-            msg->left = sizeof(msg->seq);
+            msg->stage = PORTAL_MSG_STAGE_SEQHIGH;
+            msg->left = sizeof(msg->seqHigh);
             break;
     }
     return rc;
@@ -163,7 +176,7 @@ mln_chain_t *portal_msg_msg2chain(mln_alloc_t *pool, portal_message_t *msg)
         return NULL;
     }
     c->buf = b;
-    blen = sizeof(mln_u32_t) * 2 + PORTAL_KEY_LEN * 2 + msg->len + sizeof(mln_u64_t);
+    blen = sizeof(mln_u32_t)*2 + PORTAL_KEY_LEN*2 + msg->len + sizeof(mln_u64_t)*2;
     if ((buf = (mln_u8ptr_t)mln_alloc_m(pool, blen)) == NULL) {
         mln_chain_pool_release(c);
         return NULL;
@@ -173,7 +186,8 @@ mln_chain_t *portal_msg_msg2chain(mln_alloc_t *pool, portal_message_t *msg)
     b->in_memory = 1;
     b->last_buf = 1;
 
-    portal_littleendian_encode(buf, sizeof(msg->seq), msg->seq);
+    portal_littleendian_encode(buf, sizeof(msg->seqHigh), msg->seqHigh);
+    portal_littleendian_encode(buf, sizeof(msg->seqLow), msg->seqLow);
     portal_littleendian_encode(buf, sizeof(msg->type), msg->type);
     memcpy(buf, msg->serverKey, PORTAL_KEY_LEN);
     buf += PORTAL_KEY_LEN;
@@ -224,7 +238,8 @@ portal_message_t *portal_msg_packUpMsg(portal_message_t *msg, \
                                        mln_u8ptr_t serverKey, \
                                        mln_u8ptr_t clientKey, \
                                        mln_u32_t type, \
-                                       mln_u64_t sndSeq)
+                                       mln_u64_t sndSeqHigh, \
+                                       mln_u64_t sndSeqLow)
 {
     mln_chain_t *fr;
     mln_u32_t len;
@@ -240,7 +255,8 @@ portal_message_t *portal_msg_packUpMsg(portal_message_t *msg, \
     }
 
     portal_msg_init(msg);
-    msg->seq = sndSeq;
+    msg->seqHigh = sndSeqHigh;
+    msg->seqLow = sndSeqLow;
     msg->type = type;
     len = c==NULL? sizeof(mln_u32_t): (*c)->buf->last - (*c)->buf->left_pos;
     msg->len = len > PORTAL_MESSAGE_UNITLEN? PORTAL_MESSAGE_UNITLEN: len;

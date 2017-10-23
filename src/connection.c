@@ -56,9 +56,12 @@ portal_connection_t *portal_connection_new(int sockfd, char *ip, mln_u16_t port,
     portal_msg_init(&(conn->msg));
     conn->pool = mln_tcp_conn_get_pool(&(conn->conn));
     conn->msgTail = conn->msgHead = NULL;
-    conn->sndSeq = 0;
-    conn->rcvSeq = 0;
-    conn->closeSeq = 0;
+    conn->sndSeqHigh = 0;
+    conn->sndSeqLow = 0;
+    conn->rcvSeqHigh = 0;
+    conn->rcvSeqLow = 0;
+    conn->closeSeqHigh = 0;
+    conn->closeSeqLow = 0;
     len = len >= __CONNECTION_IP_LEN? __CONNECTION_IP_LEN-1: len;
     memcpy(conn->ip, ip, len);
     conn->ip[len] = 0;
@@ -214,19 +217,25 @@ int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message
     mln_tcp_conn_t *tcpConn = portal_connection_getTcpConn(conn);
     portal_message_t *scan = conn->msgHead;
 
-    if (msg->seq < conn->rcvSeq) {
+    if ((msg->seqHigh < conn->rcvSeqHigh) || \
+        (msg->seqHigh == conn->rcvSeqHigh && msg->seqLow < conn->rcvSeqLow))
+    {
         mln_log(error, "Invalid message.\n");
         portal_message_free(msg);
         return -1;
     }
 
     for (; scan != NULL; scan = scan->next) {
-        if (scan->seq >= msg->seq) break;
+        if ((scan->seqHigh > msg->seqHigh) || \
+            (scan->seqHigh == msg->seqHigh && scan->seqLow >= msg->seqLow))
+        {
+            break;
+        }
     }
     if (scan == NULL) {
         portal_message_chain_add(&(conn->msgHead), &(conn->msgTail), msg);
     } else {
-        if (scan->seq == msg->seq) {
+        if (scan->seqHigh == msg->seqHigh && scan->seqLow == msg->seqLow) {
             mln_log(error, "Invalid message.\n");
             portal_message_free(msg);
             return -1;
@@ -245,7 +254,7 @@ int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message
     }
 
     while ((scan = conn->msgHead) != NULL) {
-        if (scan->seq != conn->rcvSeq) {
+        if (scan->seqHigh != conn->rcvSeqHigh || scan->seqLow != conn->rcvSeqLow) {
             break;
         }
         c = portal_msg_extractFromMsg(mln_tcp_conn_get_pool(tcpConn), scan);
@@ -262,7 +271,7 @@ int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message
         }
         portal_message_chain_del(&(conn->msgHead), &(conn->msgTail), scan);
         portal_message_free(scan);
-        ++conn->rcvSeq;
+        if (++conn->rcvSeqLow == 0) ++conn->rcvSeqHigh;
     }
     *out = c_head;
 

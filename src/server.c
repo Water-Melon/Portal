@@ -158,7 +158,7 @@ static void portal_outer_accept_handler(mln_event_t *ev, int fd, void *data)
                                        portal_connection_getLocalKey(conn), \
                                        portal_connection_getRemoteKey(conn), \
                                        PORTAL_MSG_TYPE_ESTABLISH, \
-                                       0);
+                                       0, 0);
             if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
                 mln_log(error, "No memory.\n");
                 mln_rbtree_delete(gOuterSet, rn);
@@ -209,6 +209,7 @@ static void portal_outer_recv_handler(mln_event_t *ev, int fd, void *data)
     mln_tcp_conn_t *innerTcpConn;
     portal_connection_t *outerConn = (portal_connection_t *)data;
     portal_connection_t *innerConn = portal_connection_getInnerConn();
+    mln_u64_t seqHigh = 0, seqLow = 0;
 
     if (innerConn == NULL) {
         portal_close_handler(ev, fd, data);
@@ -222,12 +223,15 @@ static void portal_outer_recv_handler(mln_event_t *ev, int fd, void *data)
     err = errno;
     c = mln_tcp_conn_remove(outerTcpConn, M_C_RECV);
     while (c != NULL) {
+        seqLow = outerConn->sndSeqLow++;
+        if (outerConn->sndSeqLow == 0) ++outerConn->sndSeqHigh;
+        seqHigh = outerConn->sndSeqHigh;
         msg = portal_msg_packUpMsg(portal_connection_getMsg(outerConn), \
                                    &c, \
                                    portal_connection_getLocalKey(outerConn), \
                                    portal_connection_getRemoteKey(outerConn), \
                                    PORTAL_MSG_TYPE_DATA, \
-                                   outerConn->sndSeq++);
+                                   seqHigh, seqLow);
         if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
             mln_log(error, "No memory.\n");
             if (c != NULL) mln_chain_pool_release_all(c);
@@ -270,6 +274,8 @@ static void portal_close_handler(mln_event_t *ev, int fd, void *data)
     portal_message_t *msg;
     portal_connection_t *innerConn = NULL;
     portal_connection_t *conn = (portal_connection_t *)data;
+    mln_u64_t seqHigh = 0, seqLow = 0;
+
     if (portal_connection_getType(conn) == outer) {
         tree = gOuterSet;
         innerConn = portal_connection_getInnerConn();
@@ -279,13 +285,15 @@ static void portal_close_handler(mln_event_t *ev, int fd, void *data)
     }
     if (innerConn != NULL) {
         mln_tcp_conn_t *innerTcpConn = portal_connection_getTcpConn(innerConn);
-
+        seqLow = conn->sndSeqLow++;
+        if (conn->sndSeqLow == 0) ++conn->sndSeqHigh;
+        seqHigh = conn->sndSeqHigh;
         msg = portal_msg_packUpMsg(portal_connection_getMsg(conn), \
                                    NULL, \
                                    portal_connection_getLocalKey(conn), \
                                    portal_connection_getRemoteKey(conn), \
                                    PORTAL_MSG_TYPE_BYE, \
-                                   conn->sndSeq++);
+                                   seqHigh, seqLow);
         if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
             mln_log(error, "No memory.\n");
             abort();
@@ -380,7 +388,7 @@ static void portal_inner_ping_handler(mln_event_t *ev, int fd, void *data)
                                portal_connection_getLocalKey(innerConn), \
                                portal_connection_getRemoteKey(innerConn), \
                                PORTAL_MSG_TYPE_HELLO, \
-                               0);
+                               0, 0);
     if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
         mln_log(error, "No memory.\n");
         portal_close_handler(ev, fd, data);
@@ -454,7 +462,7 @@ again:
                                        portal_connection_getLocalKey(innerConn), \
                                        portal_connection_getRemoteKey(innerConn), \
                                        PORTAL_MSG_TYPE_ACK, \
-                                       0);
+                                       0, 0);
             if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
                 mln_log(error, "No memory.\n");
                 if (c != NULL) mln_tcp_conn_append_chain(innerTcpConn, c, NULL, M_C_RECV);
@@ -476,10 +484,13 @@ again:
             if (!mln_rbtree_null(rn, gOuterSet)) {
                 outerConn = (portal_connection_t *)(rn->data);
                 outerTcpConn = portal_connection_getTcpConn(outerConn);
-                if (outerConn->rcvSeq == msg->seq && mln_tcp_conn_get_head(outerTcpConn, M_C_SEND) == NULL) {
+                if (outerConn->rcvSeqHigh == msg->seqHigh && \
+                    outerConn->rcvSeqLow == msg->seqLow && \
+                    mln_tcp_conn_get_head(outerTcpConn, M_C_SEND) == NULL)
+                {
                     portal_close_handler(ev, mln_tcp_conn_get_fd(outerTcpConn), outerConn);
                 } else {
-                    portal_connection_setClose(outerConn, msg->seq);
+                    portal_connection_setClose(outerConn, msg->seqHigh, msg->seqLow);
                 }
             }
         } else {

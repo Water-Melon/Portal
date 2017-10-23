@@ -25,9 +25,12 @@ typedef struct portal_connection_s {
     mln_alloc_t                *pool;
     portal_message_t           *msgHead;
     portal_message_t           *msgTail;
-    mln_u64_t                   sndSeq;
-    mln_u64_t                   rcvSeq;
-    mln_u64_t                   closeSeq;
+    mln_u64_t                   sndSeqHigh;
+    mln_u64_t                   sndSeqLow;
+    mln_u64_t                   rcvSeqHigh;
+    mln_u64_t                   rcvSeqLow;
+    mln_u64_t                   closeSeqHigh;
+    mln_u64_t                   closeSeqLow;
     mln_s8_t                    ip[__CONNECTION_IP_LEN];
     mln_u16_t                   port;
     mln_u32_t                   close:1;
@@ -35,14 +38,18 @@ typedef struct portal_connection_s {
     struct portal_connection_s *next;
 } portal_connection_t;
 
-#define portal_connection_shouldClose(pconn)   ((pconn)->close == 1 && (pconn)->closeSeq == (pconn)->rcvSeq)
-#define portal_connection_setClose(pconn,seq)  ((pconn)->close = 1, (pconn)->closeSeq = (seq))
-#define portal_connection_getType(pconn)       ((pconn)->type)
-#define portal_connection_getLocalKey(pconn)   ((pconn)->localKey)
-#define portal_connection_getRemoteKey(pconn)  ((pconn)->remoteKey)
-#define portal_connection_getMsg(pconn)        (&((pconn)->msg))
-#define portal_connection_getPool(pconn)       ((pconn)->pool)
-#define portal_connection_getTcpConn(pconn)    (&((pconn)->conn))
+#define portal_connection_shouldClose(pconn)   \
+((pconn)->close == 1 && \
+(pconn)->closeSeqHigh == (pconn)->rcvSeqHigh && \
+(pconn)->closeSeqLow == (pconn)->rcvSeqLow)
+#define portal_connection_setClose(pconn,seqHigh, seqLow) \
+((pconn)->close = 1, (pconn)->closeSeqHigh = (seqHigh), (pconn)->closeSeqLow = (seqLow))
+#define portal_connection_getType(pconn)                  ((pconn)->type)
+#define portal_connection_getLocalKey(pconn)              ((pconn)->localKey)
+#define portal_connection_getRemoteKey(pconn)             ((pconn)->remoteKey)
+#define portal_connection_getMsg(pconn)                   (&((pconn)->msg))
+#define portal_connection_getPool(pconn)                  ((pconn)->pool)
+#define portal_connection_getTcpConn(pconn)               (&((pconn)->conn))
 
 extern portal_connection_t *portal_connection_new(int sockfd, char *ip, mln_u16_t port, conn_type_t type) __NONNULL1(2);
 extern void portal_connection_free(portal_connection_t *conn);

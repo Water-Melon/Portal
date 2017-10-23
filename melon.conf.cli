@@ -9,7 +9,7 @@ max_nofile 1024000;
 worker_proc 1;/*must be 1*/
 thread_mode off;
 framework on;
-log_path "/usr/local/melon/logs/portal_client.log";
+log_path "./logs/portal_client.log";
 portal {
     certify_token "abcdfg"; /*rc4 secret key*/
     tunnel_number 1000; /*only used on client*/

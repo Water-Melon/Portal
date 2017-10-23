@@ -10,12 +10,13 @@
 
 #define PORTAL_KEY_LEN             __M_SHA_BUFLEN
 #define PORTAL_MESSAGE_UNITLEN     1024
-#define PORTAL_MSG_STAGE_SEQ       0
-#define PORTAL_MSG_STAGE_TYPE      1
-#define PORTAL_MSG_STAGE_SERVERKEY 2
-#define PORTAL_MSG_STAGE_CLIENTKEY 3
-#define PORTAL_MSG_STAGE_LEN       4
-#define PORTAL_MSG_STAGE_DATA      5
+#define PORTAL_MSG_STAGE_SEQHIGH   0
+#define PORTAL_MSG_STAGE_SEQLOW    1
+#define PORTAL_MSG_STAGE_TYPE      2
+#define PORTAL_MSG_STAGE_SERVERKEY 3
+#define PORTAL_MSG_STAGE_CLIENTKEY 4
+#define PORTAL_MSG_STAGE_LEN       5
+#define PORTAL_MSG_STAGE_DATA      6
 #define PORTAL_MSG_TYPE_HELLO      0
 #define PORTAL_MSG_TYPE_ACK        1
 #define PORTAL_MSG_TYPE_BYE        2
@@ -28,7 +29,8 @@
 
 typedef struct portal_message_s {
     mln_u32_t                stage;
-    mln_u64_t                seq;
+    mln_u64_t                seqHigh;
+    mln_u64_t                seqLow;
     mln_u32_t                type;
     mln_u32_t                len;
     mln_u32_t                left;
@@ -60,11 +62,12 @@ typedef struct portal_message_s {
 }
 
 #define portal_msg_init(pmsg) \
-    ((pmsg)->stage = PORTAL_MSG_STAGE_SEQ, \
-     (pmsg)->seq = 0, \
+    ((pmsg)->stage = PORTAL_MSG_STAGE_SEQHIGH, \
+     (pmsg)->seqHigh = 0, \
+     (pmsg)->seqLow = 0, \
      (pmsg)->type = PORTAL_MSG_TYPE_DATA, \
      (pmsg)->len = 0, \
-     (pmsg)->left = sizeof((pmsg)->seq), \
+     (pmsg)->left = sizeof((pmsg)->seqHigh), \
      (pmsg)->serverKey[0] = 0, \
      (pmsg)->clientKey[0] = 0, \
      (pmsg)->buf[0] = 0, \
@@ -82,7 +85,8 @@ extern portal_message_t *portal_msg_packUpMsg(portal_message_t *msg, \
                                               mln_u8ptr_t serverKey, \
                                               mln_u8ptr_t clientKey, \
                                               mln_u32_t type, \
-                                              mln_u64_t sndSeq) __NONNULL1(1);
+                                              mln_u64_t sndSeqHigh, \
+                                              mln_u64_t sndSeqLow) __NONNULL1(1);
 #endif
 
 
