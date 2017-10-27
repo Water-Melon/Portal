@@ -9,12 +9,12 @@ max_nofile 1024000;
 worker_proc 1;/*must be 1*/
 thread_mode off;
 framework on;
-log_path "./logs/portal_client.log";
+log_path "./logs/portal_proxySrv.log";
 portal {
     certify_token "abcdfg"; /*rc4 secret key*/
     tunnel_number 1000; /*only used on client*/
-    outerAddr "0.0.0.0:1234";
-    innerAddr "127.0.0.1:10376";
+    outerAddr "127.0.0.1:80";
+    innerAddr "0.0.0.0:10376";
     role "server";/* "server" or "client" */
     inner_timeout 60000;/*ms -- ping timeout*/
     outer_timeout 30000;/*ms -- connection timeout (only used on server)*/
