@@ -99,10 +99,11 @@ static int mln_global_init(void)
         fprintf(stderr, "Command '%s' need one parameter.\n", mln_cmd_inner_timeout);
         return -1;
     }
-    if (ci->type != CONF_INT || (gInnerTimeout = ci->val.i) <= 0) {
+    if (ci->type != CONF_INT) {
         fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_inner_timeout);
         return -1;
     }
+    gInnerTimeout = ci->val.i;
 
     /*get outer timeout*/
     if ((cc = cd->search(cd, mln_cmd_outer_timeout)) == NULL) {
@@ -113,10 +114,11 @@ static int mln_global_init(void)
         fprintf(stderr, "Command '%s' need one parameter.\n", mln_cmd_outer_timeout);
         return -1;
     }
-    if (ci->type != CONF_INT || (gOuterTimeout = ci->val.i) <= 0) {
+    if (ci->type != CONF_INT) {
         fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_outer_timeout);
         return -1;
     }
+    gOuterTimeout = ci->val.i;
 
     /*get retry timeout*/
     if ((cc = cd->search(cd, mln_cmd_retry_timeout)) == NULL) {
@@ -127,10 +129,11 @@ static int mln_global_init(void)
         fprintf(stderr, "Command '%s' need one parameter.\n", mln_cmd_retry_timeout);
         return -1;
     }
-    if (ci->type != CONF_INT || (gRetryTimeout = ci->val.i) <= 0) {
+    if (ci->type != CONF_INT) {
         fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_retry_timeout);
         return -1;
     }
+    gRetryTimeout = ci->val.i;
 
     /*get role*/
     if ((cc = cd->search(cd, mln_cmd_role)) == NULL) {
