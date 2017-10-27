@@ -5,6 +5,7 @@
 #include "portal.h"
 #include "server.h"
 #include "client.h"
+#include "proxy.h"
 #include "connection.h"
 
 /*
@@ -29,6 +30,9 @@ static char mln_cmd_outer_timeout[] = "outer_timeout";
 static char mln_cmd_retry_timeout[] = "retry_timeout";
 static char mln_cmd_mode_positive[] = "positive";
 static char mln_cmd_mode_negative[] = "negative";
+static char mln_cmd_as[] = "as";
+static char mln_cmd_as_tunnel[] = "tunnel";
+static char mln_cmd_as_proxy[] = "proxy";
 
 static int mln_global_init(void);
 static void mln_worker_process(mln_event_t *ev);
@@ -249,6 +253,24 @@ static int mln_global_init(void)
         return -1;
     }
 
+    /*as*/
+    if ((cc = cd->search(cd, mln_cmd_as)) == NULL) {
+        fprintf(stderr, "Command '%s' required.\n", mln_cmd_as);
+        return -1;
+    }
+    if ((ci = cc->search(cc, 1)) == NULL || ci->type != CONF_STR) {
+        fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_as);
+        return -1;
+    }
+    if (!mln_string_constStrcmp(ci->val.s, mln_cmd_as_tunnel)) {
+        gIsTunnel = 1;
+    } else if (!mln_string_constStrcmp(ci->val.s, mln_cmd_as_proxy)) {
+        gIsTunnel = 0;
+    } else {
+        fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_as);
+        return -1;
+    }
+
     /*sets*/
     rbattr.cmp = (rbtree_cmp)portal_connection_cmp;
     rbattr.data_free = (rbtree_free_data)portal_connection_free;
@@ -265,7 +287,7 @@ static int mln_global_init(void)
 
 static void mln_worker_process(mln_event_t *ev)
 {
-    gIsServer? portal_server_entrance(ev): portal_client_entrance(ev);
+    gIsTunnel? (gIsServer? portal_server_entrance(ev): portal_client_entrance(ev)): portal_proxy_entrance(ev);
 }
 
 

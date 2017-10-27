@@ -20,4 +20,5 @@ portal {
     outer_timeout 30000;/*ms -- connection timeout (only used on server)*/
     retry_timeout 500;/*ms -- re-connect timeout (only used on client)*/
     mode "negative";/* "positive" or "negative" */
+    as "tunnel";
 }

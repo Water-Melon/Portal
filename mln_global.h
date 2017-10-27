@@ -27,6 +27,7 @@ EXTERN mln_string_t *gCertKey;
 EXTERN mln_sauto_t gInnerTimeout;
 EXTERN mln_sauto_t gOuterTimeout;
 EXTERN mln_sauto_t gRetryTimeout;
+EXTERN mln_u8_t gIsTunnel;
 
 #endif
 

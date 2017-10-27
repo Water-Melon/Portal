@@ -1,0 +1,5 @@
+#!/bin/bash
+# 
+# Copyright (C) Niklaus F.Schen.
+# 
+test -d melon && cp melon.conf.proxySrv melon/conf/melon.conf && ./portal
