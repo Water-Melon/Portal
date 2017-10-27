@@ -26,6 +26,23 @@ MLN_CHAIN_FUNC_DECLARE(portal_message, \
                        static inline void, \
                        __NONNULL3(1,2,3));
 
+portal_channel_t *portal_channel_new(void)
+{
+    portal_channel_t *ch;
+    if ((ch = (portal_channel_t *)malloc(sizeof(portal_channel_t))) == NULL) {
+        return NULL;
+    }
+    ch->accept = NULL;
+    ch->connect = NULL;
+    return ch;
+}
+
+void portal_channel_free(portal_channel_t *ch)
+{
+    if (ch == NULL) return;
+    free(ch);
+}
+
 portal_connection_t *portal_connection_new(int sockfd, char *ip, mln_u16_t port, conn_type_t type)
 {
     mln_sha256_t sha;
@@ -69,6 +86,7 @@ portal_connection_t *portal_connection_new(int sockfd, char *ip, mln_u16_t port,
     conn->close = 0;
     conn->prev = NULL;
     conn->next = NULL;
+    conn->channel = NULL;
 
     if (type == inner) {
         portal_connection_chain_add(&connHead, &connTail, conn);
@@ -107,6 +125,19 @@ void portal_connection_free(portal_connection_t *conn)
         portal_message_free(fr);
     }
     mln_tcp_conn_destroy(&(conn->conn));
+    if (conn->channel != NULL) {
+        if (conn->channel->accept == conn) {
+            conn->channel->accept = NULL;
+            if (conn->channel->connect == NULL) {
+                portal_channel_free(conn->channel);
+            }
+        } else {
+            conn->channel->connect = NULL;
+            if (conn->channel->accept == NULL) {
+                portal_channel_free(conn->channel);
+            }
+        }
+    }
     free(conn);
 }
 

@@ -11,6 +11,8 @@
 
 #define __CONNECTION_IP_LEN  64
 
+typedef struct portal_channel_s portal_channel_t;
+
 typedef enum {
     outer = 0,
     inner
@@ -36,7 +38,13 @@ typedef struct portal_connection_s {
     mln_u32_t                   close:1;
     struct portal_connection_s *prev;
     struct portal_connection_s *next;
+    portal_channel_t           *channel;
 } portal_connection_t;
+
+struct portal_channel_s {
+    portal_connection_t        *accept;
+    portal_connection_t        *connect;
+};
 
 #define portal_connection_shouldClose(pconn)   \
 ((pconn)->close == 1 && \
@@ -50,6 +58,10 @@ typedef struct portal_connection_s {
 #define portal_connection_getMsg(pconn)                   (&((pconn)->msg))
 #define portal_connection_getPool(pconn)                  ((pconn)->pool)
 #define portal_connection_getTcpConn(pconn)               (&((pconn)->conn))
+#define portal_connection_getChannel(pconn)               ((pconn)->channel)
+
+#define portal_channel_setAccept(channel,conn)            ((channel)->accept = (conn))
+#define portal_channel_setConnect(channel,conn)           ((channel)->connect = (conn))
 
 extern portal_connection_t *portal_connection_new(int sockfd, char *ip, mln_u16_t port, conn_type_t type) __NONNULL1(2);
 extern void portal_connection_free(portal_connection_t *conn);
@@ -57,6 +69,8 @@ extern int portal_connection_cmp(const portal_connection_t *conn1, const portal_
 extern portal_connection_t *portal_connection_getInnerConn(void);
 extern void portal_connection_moveChain(mln_event_t *ev, portal_connection_t *src, ev_fd_handler recv, ev_fd_handler send) __NONNULL3(1,3,4);
 extern int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message_t *msg, mln_chain_t **out) __NONNULL3(1,2,3);
+extern portal_channel_t *portal_channel_new(void);
+extern void portal_channel_free(portal_channel_t *ch);
 #endif
 
 
