@@ -74,11 +74,11 @@ static void portal_proxy_accept_handler(mln_event_t *ev, int fd, void *data)
     int connfd;
     socklen_t len;
     mln_u16_t port;
-    ev_fd_handler handler = gIsServer? portal_proxy_msg_recv_handler: portal_proxy_raw_recv_handler;
+    portal_channel_t *ch;
     struct sockaddr_in addr;
     portal_connection_t *conn;
-    portal_channel_t *ch;
     conn_type_t type = gIsServer? inner: outer;
+    ev_fd_handler handler = gIsServer? portal_proxy_msg_recv_handler: portal_proxy_raw_recv_handler;
 
     while (1) {
         memset(&addr, 0, sizeof(addr));
@@ -99,7 +99,7 @@ static void portal_proxy_accept_handler(mln_event_t *ev, int fd, void *data)
         }
         if (mln_event_set_fd(ev, \
                              connfd, \
-                             M_EV_RECV|M_EV_NONBLOCK, \
+                             M_EV_RECV|M_EV_NONBLOCK|M_EV_ONESHOT, \
                              gIsServer? gInnerTimeout: gOuterTimeout, \
                              conn, \
                              handler) < 0)
@@ -123,7 +123,7 @@ static void portal_proxy_accept_handler(mln_event_t *ev, int fd, void *data)
             portal_proxy_close_handler(ev, connfd, conn);
             continue;
         }
-        mln_log(report, "%s:%u Connected.\n", ip, port);
+        mln_log(report, "%s %s:%u Connected.\n", type==inner?"Inner":"Outer", ip, port);
     }
 }
 
@@ -131,8 +131,8 @@ static int portal_proxy_connect(mln_event_t *ev, portal_channel_t *ch)
 {
     int sockfd, flg;
     struct sockaddr_in addr;
-    mln_u16_t port = gIsServer? gOuterPort: gInnerPort;
     char *ip = gIsServer? gOuterIP: gInnerIP;
+    mln_u16_t port = gIsServer? gOuterPort: gInnerPort;
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         mln_log(error, "socket error. %s\n", strerror(errno));
@@ -177,6 +177,7 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
 
     if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0) {
         mln_log(error, "getsockopt error. %s\n", strerror(errno));
+        mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
         close(fd);
         portal_proxy_close_handler(ev, acceptFd, ch->accept);
         return;
@@ -184,6 +185,7 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
     if (err) {
         if (err != EINPROGRESS) {
             mln_log(error, "connect error. %s\n", strerror(err));
+            mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
             close(fd);
             portal_proxy_close_handler(ev, acceptFd, ch->accept);
             return;
@@ -199,6 +201,7 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
 
     if ((conn = portal_connection_new(fd, ip, port, type)) == NULL) {
         mln_log(error, "No memory or hash key conflict.\n");
+        mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
         close(fd);
         portal_proxy_close_handler(ev, acceptFd, ch->accept);
         return;
@@ -212,6 +215,14 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
                      conn, \
                      handler);
     mln_event_set_fd_timeout_handler(ev, fd, conn, portal_proxy_close_handler);
+    handler = gIsServer? portal_proxy_msg_recv_handler: portal_proxy_raw_recv_handler;
+    mln_event_set_fd(ev, \
+                     acceptFd, \
+                     M_EV_RECV|M_EV_NONBLOCK, \
+                     gIsServer? gInnerTimeout: gOuterTimeout, \
+                     ch->accept, \
+                     handler);
+    mln_event_set_fd_timeout_handler(ev, acceptFd, ch->accept, portal_proxy_close_handler);
 }
 
 static void portal_proxy_raw_recv_handler(mln_event_t *ev, int fd, void *data)
@@ -258,16 +269,6 @@ static void portal_proxy_raw_recv_handler(mln_event_t *ev, int fd, void *data)
         portal_proxy_close_handler(ev, fd, data);
     } else if (rc == M_C_CLOSED) {
         portal_proxy_close_handler(ev, fd, data);
-    } else {
-        if (mln_tcp_conn_get_head(tcpConn, M_C_SEND) == NULL) {
-            mln_event_set_fd(ev, \
-                             fd, \
-                             M_EV_RECV|M_EV_NONBLOCK, \
-                             gIsServer? gOuterTimeout: gInnerTimeout, \
-                             conn, \
-                             portal_proxy_raw_recv_handler);
-            mln_event_set_fd_timeout_handler(ev, fd, data, portal_proxy_close_handler);
-        }
     }
 }
 
