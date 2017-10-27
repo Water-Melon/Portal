@@ -11,84 +11,53 @@
 #include <stdio.h>
 #include <errno.h>
 #include "connection.h"
+#include <signal.h>
 
-static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *data);
-static void portal_server_close_handler(mln_event_t *ev, int fd, void *data);
-static void portal_server_inner_recv_handler(mln_event_t *ev, int fd, void *data);
-static void portal_server_outer_recv_handler(mln_event_t *ev, int fd, void *data);
-static void portal_server_inner_accept_handler(mln_event_t *ev, int fd, void *data);
-static void portal_server_inner_ping_handler(mln_event_t *ev, int fd, void *data);
-static void portal_server_send_handler(mln_event_t *ev, int fd, void *data);
-static int portal_server_sortAndBuildChain(mln_event_t *ev, portal_connection_t *outerConn, portal_message_t *msg);
+static void portal_proxy_accept_handler(mln_event_t *ev, int fd, void *data);
+static void portal_proxy_close_handler(mln_event_t *ev, int fd, void *data);
+static int portal_proxy_connect(mln_event_t *ev, portal_channel_t *ch);
+static int portal_proxy_connect_test(mln_event_t *ev, int fd, void *data);
+static void portal_proxy_raw_recv_handler(mln_event_t *ev, int fd, void *data);
+static void portal_proxy_msg_recv_handler(mln_event_t *ev, int fd, void *data);
 
 void portal_proxy_entrance(mln_event_t *ev)
 {
+    signal(SIGPIPE, SIG_IGN);
     struct sockaddr_in addr;
-    int outerSock, innerSock, val;
+    int val, fd;
+    char *ip = gIsServer? gInnerIP: gOuterIP;
+    mln_u16_t port = gIsServer? gInnerPort: gOuterPort;
 
-    /*outer*/
+    /*accept*/
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(gOuterPort);
-    addr.sin_addr.s_addr = inet_addr(gOuterIP);
-    if ((outerSock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(ip);
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         mln_log(error, "socket error. %s\n", strerror(errno));
         abort();
     }
     val = 1;
-    if (setsockopt(outerSock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0) {
         mln_log(error, "setsockopt error. %s\n", strerror(errno));
         abort();
     }
-    if (bind(outerSock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         mln_log(error, "bind error. %s\n", strerror(errno));
         abort();
     }
-    if (listen(outerSock, 32767) < 0) {
-        mln_log(error, "listen error. %s\n", strerror(errno));
-        abort();
-    }
-
-    /*inner*/
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(gInnerPort);
-    addr.sin_addr.s_addr = inet_addr(gInnerIP);
-    if ((innerSock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        mln_log(error, "socket error. %s\n", strerror(errno));
-        abort();
-    }
-    val = 1;
-    if (setsockopt(innerSock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0) {
-        mln_log(error, "setsockopt error. %s\n", strerror(errno));
-        abort();
-    }
-    if (bind(innerSock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        mln_log(error, "bind error. %s\n", strerror(errno));
-        abort();
-    }
-    if (listen(innerSock, 32767) < 0) {
+    if (listen(fd, 32767) < 0) {
         mln_log(error, "listen error. %s\n", strerror(errno));
         abort();
     }
 
     /*ev*/
     if (mln_event_set_fd(ev, \
-                         outerSock, \
+                         fd, \
                          M_EV_RECV|M_EV_NONBLOCK, \
                          M_EV_UNLIMITED, \
                          NULL, \
-                         portal_server_outer_accept_handler) < 0)
-    {
-        mln_log(error, "No memory.\n");
-        abort();
-    }
-    if (mln_event_set_fd(ev, \
-                         innerSock, \
-                         M_EV_RECV|M_EV_NONBLOCK, \
-                         M_EV_UNLIMITED, \
-                         NULL, \
-                         portal_server_inner_accept_handler) < 0)
+                         portal_proxy_accept_handler) < 0)
     {
         mln_log(error, "No memory.\n");
         abort();
@@ -97,19 +66,19 @@ void portal_proxy_entrance(mln_event_t *ev)
     mln_event_dispatch(ev);
 }
 
-static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *data)
+static void portal_proxy_accept_handler(mln_event_t *ev, int fd, void *data)
 {
     char *ip;
     int connfd;
     socklen_t len;
     mln_u16_t port;
+    ev_fd_handler handler = gIsServer? portal_proxy_msg_recv_handler: portal_proxy_raw_recv_handler;
+    mln_rbtree_t *set = gIsServer? gInnerSet: gOuterSet;
     mln_rbtree_node_t *rn;
-    portal_message_t *msg;
     struct sockaddr_in addr;
-    mln_chain_t *trans = NULL;
     portal_connection_t *conn;
-    mln_tcp_conn_t *innerTcpConn;
-    portal_connection_t *innerConn = NULL;
+    portal_channel_t *channel;
+    conn_type_t type = gIsServer? inner: outer;
 
     while (1) {
         memset(&addr, 0, sizeof(addr));
@@ -123,158 +92,277 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
         }
         ip = inet_ntoa(addr.sin_addr);
         port = ntohs(addr.sin_port);
-        if ((conn = portal_connection_new(connfd, ip, port, outer)) == NULL) {
+        if ((conn = portal_connection_new(connfd, ip, port, type)) == NULL) {
             mln_log(error, "No memory.\n");
             close(connfd);
             break;
         }
-        rn = mln_rbtree_search(gOuterSet, gOuterSet->root, conn);
-        if (!mln_rbtree_null(rn, gOuterSet)) {
+        rn = mln_rbtree_search(set, set->root, conn);
+        if (!mln_rbtree_null(rn, set)) {
             portal_connection_free(conn);
             mln_log(error, "Connection key conflict.\n");
             close(connfd);
             continue;
         }
-        if ((rn = mln_rbtree_new_node(gOuterSet, conn)) == NULL) {
+        if ((rn = mln_rbtree_new_node(set, conn)) == NULL) {
             portal_connection_free(conn);
             mln_log(error, "No memory.\n");
             close(connfd);
             break;
         }
-        mln_rbtree_insert(gOuterSet, rn);
-
-        if (!gIsPositive) {
-            innerConn = portal_connection_getInnerConn();
-            if (innerConn == NULL) {
-                mln_rbtree_delete(gOuterSet, rn);
-                mln_rbtree_free_node(gOuterSet, rn);
-                mln_log(error, "No inner connection available.\n");
-                close(connfd);
-                break;
-            }
-            msg = portal_connection_getMsg(conn);
-            msg = portal_msg_packUpMsg(msg, \
-                                       NULL, \
-                                       portal_connection_getLocalKey(conn), \
-                                       portal_connection_getRemoteKey(conn), \
-                                       PORTAL_MSG_TYPE_ESTABLISH, \
-                                       0, 0);
-            if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
-                mln_log(error, "No memory.\n");
-                mln_rbtree_delete(gOuterSet, rn);
-                mln_rbtree_free_node(gOuterSet, rn);
-                close(connfd);
-                break;
-            }
-        }
+        mln_rbtree_insert(set, rn);
 
         if (mln_event_set_fd(ev, \
                              connfd, \
                              M_EV_RECV|M_EV_NONBLOCK, \
-                             gOuterTimeout, \
+                             gIsServer? gInnerTimeout: gOuterTimeout, \
                              conn, \
-                             portal_server_outer_recv_handler) < 0)
+                             handler) < 0)
         {
-            if (trans != NULL) mln_chain_pool_release(trans);
-            mln_rbtree_delete(gOuterSet, rn);
-            mln_rbtree_free_node(gOuterSet, rn);
+            mln_rbtree_delete(set, rn);
+            mln_rbtree_free_node(set, rn);
             mln_log(error, "No memory.\n");
             close(connfd);
             break;
         }
-        mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_server_close_handler);
+        mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_proxy_close_handler);
 
-        if (trans != NULL) {
-            innerTcpConn = portal_connection_getTcpConn(innerConn);
-            mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
-            mln_event_set_fd(ev, \
-                             mln_tcp_conn_get_fd(innerTcpConn), \
-                             M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
-                             M_EV_UNLIMITED, \
-                             innerConn, \
-                             portal_server_send_handler);
-
+        if ((ch = portal_channel_new()) == NULL) {
+            mln_log(error, "No memory.\n");
+            portal_proxy_close_handler(ev, connfd, conn);
+            break;
         }
+        portal_channel_setAccept(ch, conn);
+        portal_connection_setChannel(conn, ch);
 
-        mln_log(report, "Outer %s:%u Connected.\n", ip, port);
+        if (portal_proxy_connect(ev, ch) < 0) {
+            portal_proxy_close_handler(ev, connfd, conn);
+            continue;
+        }
+        mln_log(report, "%s:%u Connected.\n", ip, port);
     }
 }
 
-static void portal_server_outer_recv_handler(mln_event_t *ev, int fd, void *data)
+static int portal_proxy_connect(mln_event_t *ev, portal_channel_t *ch)
+{
+    int sockfd, flg;
+    struct sockaddr_in addr;
+    mln_u16_t port = gIsServer? gOuterPort: gInnerPort;
+    char *ip = gIsServer? gOuterIP: gInnerIP;
+
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        mln_log(error, "socket error. %s\n", strerror(errno));
+        return -1;
+    }
+    flg = fcntl(sockfd, F_GETFL, NULL);
+    fcntl(sockfd, F_SETFL, flg | O_NONBLOCK);
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(ip);
+    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0 && errno != EINPROGRESS) {
+        mln_log(error, "connect error. %s\n", strerror(errno));
+        close(sockfd);
+        return -1;
+    }
+    if (mln_event_set_fd(ev, \
+                         sockfd, \
+                         M_EV_SEND|M_EV_NONBLOCK|M_EV_ONESHOT, \
+                         M_EV_UNLIMITED, \
+                         ch, \
+                         portal_proxy_connect_test) < 0)
+    {
+        mln_log(error, "No memory.\n");
+        close(sockfd);
+        return -1;
+    }
+    return 0;
+}
+
+static int portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
+{
+    int err = 0;
+    char *ip = gIsServer? gOuterIP: gInnerIP;
+    ev_fd_handler handler = gIsServer? portal_proxy_raw_recv_handler: portal_proxy_msg_recv_handler;
+    mln_u16_t port = gIsServer? gOuterPort: gInnerPort;
+    portal_channel_t *ch = (portal_channel_t *)data;
+    int acceptFd = mln_tcp_conn_get_fd(portal_connection_getTcpConn(ch->accept));
+    conn_type_t type = gIsServer? outer: inner;
+    socklen_t len = sizeof(err);
+    portal_connection_t *conn;
+    mln_rbtree_t *set = gIsServer? gOuterSet: gInnerSet;
+    mln_rbtree_node_t *rn;
+
+    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0) {
+        mln_log(error, "getsockopt error. %s\n", sterror(errno));
+        close(fd);
+        portal_proxy_close_handler(ev, acceptFd, ch->accept);
+        return -1;
+    }
+    if (err) {
+        if (err != EINPROGRESS) {
+            mln_log(error, "connect error. %s\n", strerror(err));
+            close(fd);
+            portal_proxy_close_handler(ev, acceptFd, ch->accept);
+            return -1;
+        }
+        mln_event_set_fd(ev, \
+                         fd, \
+                         M_EV_SEND|M_EV_NONBLOCK|M_EV_ONESHOT, \
+                         M_EV_UNLIMITED, \
+                         data, \
+                         portal_proxy_connect_test);
+        return 0;
+    }
+
+    if ((conn = portal_connection_new(fd, ip, port, type)) == NULL) {
+        mln_log(error, "No memory or hash key conflict.\n");
+        close(fd);
+        portal_proxy_close_handler(ev, acceptFd, ch->accept);
+        return -1;
+    }
+    portal_channel_setConnect(ch, conn);
+    portal_connection_setChannel(conn, ch);
+    mln_event_set_fd(ev, \
+                     fd, \
+                     M_EV_RECV|M_EV_NONBLOCK, \
+                     gIsServer? gOuterTimeout: gInnerTimeout, \
+                     conn, \
+                     handler);
+    mln_event_set_fd_timeout_handler(ev, fd, conn, portal_proxy_close_handler);
+    if ((rn = mln_rbtree_new_node(set, conn)) == NULL) {
+        mln_log(error, "No memory.\n");
+        portal_proxy_close_handler(ev, fd, conn);
+        return -1;
+    }
+    mln_rbtree_insert(set, rn);
+    return 0;
+}
+
+static void portal_proxy_raw_recv_handler(mln_event_t *ev, int fd, void *data)
 {
     int rc, err;
     portal_message_t *msg;
     mln_chain_t *c, *trans;
-    mln_tcp_conn_t *outerTcpConn;
-    mln_tcp_conn_t *innerTcpConn;
-    portal_connection_t *outerConn = (portal_connection_t *)data;
-    portal_connection_t *innerConn = portal_connection_getInnerConn();
-    mln_u64_t seqHigh = 0, seqLow = 0;
+    portal_connection_t *conn = (portal_connection_t *)data;
+    mln_tcp_conn_t *tcpConn = portal_connection_getTcpConn(conn);
+    portal_connection_t *peerConn = gIsServer? conn->channel->accept: conn->channel->connect;
+    mln_tcp_conn_t *peerTcpConn;
 
-    if (innerConn == NULL) {
-        portal_server_close_handler(ev, fd, data);
-        return;
-    }
+    if (peerConn == NULL) return;
+    peerTcpConn = portal_connection_getTcpConn(peerConn);
 
-    outerTcpConn = portal_connection_getTcpConn(outerConn);
-    innerTcpConn = portal_connection_getTcpConn(innerConn);
-
-    rc = mln_tcp_conn_recv(outerTcpConn, M_C_TYPE_MEMORY);
+    rc = mln_tcp_conn_recv(tcpConn, M_C_TYPE_MEMORY);
     err = errno;
-    c = mln_tcp_conn_remove(outerTcpConn, M_C_RECV);
+    c = mln_tcp_conn_remove(tcpConn, M_C_RECV);
     while (c != NULL) {
-        seqLow = outerConn->sndSeqLow++;
-        if (outerConn->sndSeqLow == 0) ++outerConn->sndSeqHigh;
-        seqHigh = outerConn->sndSeqHigh;
-        msg = portal_msg_packUpMsg(portal_connection_getMsg(outerConn), \
+        msg = portal_msg_packUpMsg(portal_connection_getMsg(conn), \
                                    &c, \
-                                   portal_connection_getLocalKey(outerConn), \
-                                   portal_connection_getRemoteKey(outerConn), \
+                                   portal_connection_getLocalKey(conn), \
+                                   portal_connection_getRemoteKey(conn), \
                                    PORTAL_MSG_TYPE_DATA, \
-                                   seqHigh, seqLow);
-        if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
+                                   0, 0);
+        if ((trans = portal_msg_msg2chain(portal_connection_getPool(peerConn), msg)) == NULL) {
             mln_log(error, "No memory.\n");
             if (c != NULL) mln_chain_pool_release_all(c);
-            portal_server_close_handler(ev, fd, data);
+            portal_proxy_close_handler(ev, fd, data);
             return;
         }
-        mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
+        mln_tcp_conn_append(peerTcpConn, trans, M_C_SEND);
         mln_event_set_fd(ev, \
-                         mln_tcp_conn_get_fd(innerTcpConn), \
+                         mln_tcp_conn_get_fd(peerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
-                         innerConn, \
-                         portal_server_send_handler);
+                         peerConn, \
+                         portal_proxy_send_handler);
     }
     if (rc == M_C_ERROR) {
         if (err != ECONNRESET) {
             mln_log(error, "recv error. %s\n", strerror(err));
         }
-        portal_server_close_handler(ev, fd, data);
+        portal_proxy_close_handler(ev, fd, data);
     } else if (rc == M_C_CLOSED) {
-        portal_server_close_handler(ev, fd, data);
+        portal_proxy_close_handler(ev, fd, data);
     } else {
-        if (mln_tcp_conn_get_head(outerTcpConn, M_C_SEND) == NULL) {
+        if (mln_tcp_conn_get_head(tcpConn, M_C_SEND) == NULL) {
             mln_event_set_fd(ev, \
                              fd, \
                              M_EV_RECV|M_EV_NONBLOCK, \
-                             gOuterTimeout, \
-                             outerConn, \
-                             portal_server_outer_recv_handler);
-            mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_close_handler);
+                             gIsServer? gOuterTimeout: gInnerTimeout, \
+                             conn, \
+                             portal_proxy_raw_recv_handler);
+            mln_event_set_fd_timeout_handler(ev, fd, data, portal_proxy_close_handler);
         }
     }
 }
 
-static void portal_server_close_handler(mln_event_t *ev, int fd, void *data)
+static void portal_proxy_msg_recv_handler(mln_event_t *ev, int fd, void *data)
 {
-    mln_chain_t *trans;
-    mln_rbtree_t *tree;
+    int rc, err, ret;
+    portal_message_t *msg;
+    mln_chain_t *c;
+    portal_connection_t *conn = (portal_connection_t *)data;
+    mln_tcp_conn_t *tcpConn = portal_connection_getTcpConn(conn);
+    portal_connection_t *peerConn = gIsServer? conn->channel->accpet: conn->channel->connect;
+    mln_tcp_conn_t *peerTcpConn;
+
+    if (peerConn == NULL) return;
+    peerTcpConn = portal_connection_getTcpConn(peerConn);
+
+    rc = mln_tcp_conn_recv(conn, M_C_TYPE_MEMORY);
+    err = errno;
+    c = mln_tcp_conn_remove(conn, M_C_RECV);
+again:
+    msg = portal_connection_getMsg(innerConn);
+    ret = portal_msg_chain2msg(&c, msg);
+    if (ret == PORTAL_MSG_RET_OK) {
+        if (msg->type == PORTAL_MSG_TYPE_DATA) {
+            if ((c = portal_msg_extractFromMsg(mln_tcp_conn_get_pool(peerConn), msg)) == NULL) {
+                mln_log(error, "No memory.\n");
+                if (c != NULL) mln_chain_pool_release_all(c);
+                portal_proxy_close_handler(ev, fd, data);
+                return;
+            }
+            mln_tcp_conn_append(peerTcpConn, c, M_C_SEND);
+            mln_event_set_fd(ev, \
+                             mln_tcp_conn_get_fd(peerTcpConn), \
+                             M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
+                             M_EV_UNLIMITED, \
+                             peerConn, \
+                             portal_proxy_send_handler);
+        } else {
+            mln_log(error, "Shouldn't be this type. %x\n", msg->type);
+            if (c != NULL) mln_chain_pool_release_all(c);
+            portal_proxy_close_handler(ev, fd, data);
+            return;
+        }
+        portal_msg_init(portal_connection_getMsg(conn));
+        goto again;
+    } else if (ret == PORTAL_MSG_RET_ERROR) {
+        if (c != NULL) mln_chain_pool_release_all(c);
+        portal_proxy_close_handler(ev, fd, data);
+        return;
+    }
+    /*PORTAL_MSG_RET_AGAIN*/
+    if (c != NULL) {
+        mln_tcp_conn_append_chain(tcpConn, c, NULL, M_C_RECV);
+    }
+    if (rc == M_C_ERROR) {
+        mln_log(error, "recv error. %s\n", strerror(err));
+        portal_proxy_close_handler(ev, fd, data);
+    } else if (rc == M_C_CLOSED) {
+        portal_proxy_close_handler(ev, fd, data);
+    }
+}
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ close handler should set peer's flag -- should close and shutdown peer's read.
+static void portal_proxy_close_handler(mln_event_t *ev, int fd, void *data)
+{
+    mln_rbtree_t *set;
     mln_rbtree_node_t *rn;
     portal_message_t *msg;
-    portal_connection_t *innerConn = NULL;
+    portal_connection_t *peerConn;
     portal_connection_t *conn = (portal_connection_t *)data;
-    mln_u64_t seqHigh = 0, seqLow = 0;
 
     if (portal_connection_getType(conn) == outer) {
         tree = gOuterSet;
@@ -315,207 +403,6 @@ static void portal_server_close_handler(mln_event_t *ev, int fd, void *data)
         portal_connection_free(conn);
     }
     close(fd);
-}
-
-static void portal_server_inner_accept_handler(mln_event_t *ev, int fd, void *data)
-{
-    char *ip;
-    int connfd;
-    socklen_t len;
-    mln_u16_t port;
-    mln_rbtree_node_t *rn;
-    struct sockaddr_in addr;
-    portal_connection_t *conn;
-
-    while (1) {
-        memset(&addr, 0, sizeof(addr));
-        len = sizeof(addr);
-        if ((connfd = accept(fd, (struct sockaddr *)&addr, &len)) < 0) {
-            if (errno == EINTR || errno == ECONNABORTED) continue;
-            if (errno == EAGAIN || errno == EMFILE || errno == ENFILE)
-                break;
-            mln_log(error, "accept error. %s\n", strerror(errno));
-            break;
-        }
-        ip = inet_ntoa(addr.sin_addr);
-        port = ntohs(addr.sin_port);
-        if ((conn = portal_connection_new(connfd, ip, port, inner)) == NULL) {
-            mln_log(error, "No memory.\n");
-            close(connfd);
-            break;
-        }
-        rn = mln_rbtree_search(gInnerSet, gInnerSet->root, conn);
-        if (!mln_rbtree_null(rn, gInnerSet)) {
-            portal_connection_free(conn);
-            mln_log(error, "Connection key conflict.\n");
-            close(connfd);
-            continue;
-        }
-        if ((rn = mln_rbtree_new_node(gInnerSet, conn)) == NULL) {
-            portal_connection_free(conn);
-            mln_log(error, "No memory.\n");
-            close(connfd);
-            break;
-        }
-        mln_rbtree_insert(gInnerSet, rn);
-        if (mln_event_set_fd(ev, \
-                             connfd, \
-                             M_EV_RECV|M_EV_NONBLOCK, \
-                             gInnerTimeout, \
-                             conn, \
-                             portal_server_inner_recv_handler) < 0)
-        {
-            mln_rbtree_delete(gInnerSet, rn);
-            mln_rbtree_free_node(gInnerSet, rn);
-            mln_log(error, "No memory.\n");
-            close(connfd);
-            break;
-        }
-        mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_server_inner_ping_handler);
-        mln_log(report, "Inner %s:%u Connected.\n", ip, port);
-    }
-}
-
-static void portal_server_inner_ping_handler(mln_event_t *ev, int fd, void *data)
-{
-    mln_chain_t *trans;
-    portal_connection_t *innerConn = (portal_connection_t *)data;
-    portal_message_t *msg = portal_connection_getMsg(innerConn);
-    mln_tcp_conn_t *innerTcpConn = portal_connection_getTcpConn(innerConn);
-
-    msg = portal_msg_packUpMsg(msg, \
-                               NULL, \
-                               portal_connection_getLocalKey(innerConn), \
-                               portal_connection_getRemoteKey(innerConn), \
-                               PORTAL_MSG_TYPE_HELLO, \
-                               0, 0);
-    if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
-        mln_log(error, "No memory.\n");
-        portal_server_close_handler(ev, fd, data);
-        return;
-    }
-    mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
-    mln_event_set_fd(ev, \
-                     mln_tcp_conn_get_fd(innerTcpConn), \
-                     M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
-                     M_EV_UNLIMITED, \
-                     innerConn, \
-                     portal_server_send_handler);
-}
-
-static int portal_server_sortAndBuildChain(mln_event_t *ev, portal_connection_t *outerConn, portal_message_t *msg)
-{
-    mln_chain_t *c = NULL;
-    mln_tcp_conn_t *outerTcpConn = portal_connection_getTcpConn(outerConn);
-    memcpy(portal_connection_getRemoteKey(outerConn), msg->clientKey, __M_SHA_BUFLEN);
-    portal_message_t *dup = portal_message_dup(msg);
-    if (dup == NULL) {
-        mln_log(error, "No memory.\n");
-        return -1;
-    }
-    if (portal_connection_addMsgBuildChain(outerConn, dup, &c) < 0) {
-        return -1;
-    }
-    if (c != NULL) {
-        mln_tcp_conn_append_chain(outerTcpConn, c, NULL, M_C_SEND);
-        mln_event_set_fd(ev, \
-                         mln_tcp_conn_get_fd(outerTcpConn), \
-                         M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
-                         M_EV_UNLIMITED, \
-                         outerConn, \
-                         portal_server_send_handler);
-    }
-    return 0;
-}
-
-static void portal_server_inner_recv_handler(mln_event_t *ev, int fd, void *data)
-{
-    portal_connection_t *innerConn = (portal_connection_t *)data;
-    portal_connection_t *outerConn, tmp;
-    mln_tcp_conn_t *innerTcpConn = portal_connection_getTcpConn(innerConn);
-    mln_tcp_conn_t *outerTcpConn;
-    mln_chain_t *c, *trans;
-    portal_message_t *msg;
-    mln_rbtree_node_t *rn;
-    int rc, err, ret;
-
-    rc = mln_tcp_conn_recv(innerTcpConn, M_C_TYPE_MEMORY);
-    err = errno;
-    c = mln_tcp_conn_remove(innerTcpConn, M_C_RECV);
-again:
-    msg = portal_connection_getMsg(innerConn);
-    ret = portal_msg_chain2msg(&c, msg);
-    if (ret == PORTAL_MSG_RET_OK) {
-        if (msg->type == PORTAL_MSG_TYPE_DATA) {
-            memcpy(tmp.localKey, msg->serverKey, __M_SHA_BUFLEN);
-            rn = mln_rbtree_search(gOuterSet, gOuterSet->root, &tmp);
-            if (!mln_rbtree_null(rn, gOuterSet)) {
-                outerConn = (portal_connection_t *)(rn->data);
-                if (portal_server_sortAndBuildChain(ev, outerConn, msg) < 0) {
-                    outerTcpConn = portal_connection_getTcpConn(outerConn);
-                    portal_server_close_handler(ev, mln_tcp_conn_get_fd(outerTcpConn), outerConn);
-                }
-            }
-        } else if (msg->type == PORTAL_MSG_TYPE_HELLO) {
-            msg = portal_msg_packUpMsg(msg, \
-                                       NULL, \
-                                       portal_connection_getLocalKey(innerConn), \
-                                       portal_connection_getRemoteKey(innerConn), \
-                                       PORTAL_MSG_TYPE_ACK, \
-                                       0, 0);
-            if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
-                mln_log(error, "No memory.\n");
-                if (c != NULL) mln_tcp_conn_append_chain(innerTcpConn, c, NULL, M_C_RECV);
-                portal_server_close_handler(ev, fd, data);
-                return;
-            }
-            mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
-            mln_event_set_fd(ev, \
-                             mln_tcp_conn_get_fd(innerTcpConn), \
-                             M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
-                             M_EV_UNLIMITED, \
-                             innerConn, \
-                             portal_server_send_handler);
-        } else if (msg->type == PORTAL_MSG_TYPE_ACK) {
-            /*do nothing*/
-        } else if (msg->type == PORTAL_MSG_TYPE_BYE) {
-            memcpy(tmp.localKey, msg->serverKey, __M_SHA_BUFLEN);
-            rn = mln_rbtree_search(gOuterSet, gOuterSet->root, &tmp);
-            if (!mln_rbtree_null(rn, gOuterSet)) {
-                outerConn = (portal_connection_t *)(rn->data);
-                outerTcpConn = portal_connection_getTcpConn(outerConn);
-                if (outerConn->rcvSeqHigh == msg->seqHigh && \
-                    outerConn->rcvSeqLow == msg->seqLow && \
-                    mln_tcp_conn_get_head(outerTcpConn, M_C_SEND) == NULL)
-                {
-                    portal_server_close_handler(ev, mln_tcp_conn_get_fd(outerTcpConn), outerConn);
-                } else {
-                    portal_connection_setClose(outerConn, msg->seqHigh, msg->seqLow);
-                }
-            }
-        } else {
-            mln_log(error, "No such type. %x\n", msg->type);
-            if (c != NULL) mln_chain_pool_release_all(c);
-            portal_server_close_handler(ev, fd, data);
-            return;
-        }
-        portal_msg_init(portal_connection_getMsg(innerConn));
-        goto again;
-    } else if (ret == PORTAL_MSG_RET_ERROR) {
-        if (c != NULL) mln_chain_pool_release_all(c);
-        portal_server_close_handler(ev, fd, data);
-        return;
-    }
-    /*PORTAL_MSG_RET_AGAIN*/
-    if (c != NULL) {
-        mln_tcp_conn_append_chain(innerTcpConn, c, NULL, M_C_RECV);
-    }
-    if (rc == M_C_ERROR) {
-        mln_log(error, "recv error. %s\n", strerror(err));
-        portal_server_close_handler(ev, fd, data);
-    } else if (rc == M_C_CLOSED) {
-        portal_server_close_handler(ev, fd, data);
-    }
 }
 
 static void portal_server_send_handler(mln_event_t *ev, int fd, void *data)

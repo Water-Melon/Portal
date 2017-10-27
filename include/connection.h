@@ -59,6 +59,7 @@ struct portal_channel_s {
 #define portal_connection_getPool(pconn)                  ((pconn)->pool)
 #define portal_connection_getTcpConn(pconn)               (&((pconn)->conn))
 #define portal_connection_getChannel(pconn)               ((pconn)->channel)
+#define portal_connection_setChannel(pconn,channel)       ((pconn)->channel = (channel))
 
 #define portal_channel_setAccept(channel,conn)            ((channel)->accept = (conn))
 #define portal_channel_setConnect(channel,conn)           ((channel)->connect = (conn))
