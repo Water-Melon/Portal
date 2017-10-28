@@ -100,7 +100,7 @@ static void portal_proxy_accept_handler(mln_event_t *ev, int fd, void *data)
         if (mln_event_set_fd(ev, \
                              connfd, \
                              M_EV_RECV|M_EV_NONBLOCK|M_EV_ONESHOT, \
-                             gIsServer? gInnerTimeout: gOuterTimeout, \
+                             M_EV_UNLIMITED, \
                              conn, \
                              handler) < 0)
         {
@@ -109,7 +109,6 @@ static void portal_proxy_accept_handler(mln_event_t *ev, int fd, void *data)
             close(connfd);
             break;
         }
-        mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_proxy_close_handler);
 
         if ((ch = portal_channel_new()) == NULL) {
             mln_log(error, "No memory.\n");
@@ -276,10 +275,10 @@ static void portal_proxy_msg_recv_handler(mln_event_t *ev, int fd, void *data)
 {
     int rc, err, ret;
     portal_message_t *msg;
-    mln_chain_t *c;
+    mln_chain_t *c, *trans;
     portal_connection_t *conn = (portal_connection_t *)data;
     mln_tcp_conn_t *tcpConn = portal_connection_getTcpConn(conn);
-    portal_connection_t *peerConn = gIsServer? conn->channel->accept: conn->channel->connect;
+    portal_connection_t *peerConn = gIsServer? conn->channel->connect: conn->channel->accept;
     mln_tcp_conn_t *peerTcpConn;
 
     if (peerConn == NULL) return;
@@ -293,13 +292,13 @@ again:
     ret = portal_msg_chain2msg(&c, msg);
     if (ret == PORTAL_MSG_RET_OK) {
         if (msg->type == PORTAL_MSG_TYPE_DATA) {
-            if ((c = portal_msg_extractFromMsg(mln_tcp_conn_get_pool(peerConn), msg)) == NULL) {
+            if ((trans = portal_msg_extractFromMsg(mln_tcp_conn_get_pool(peerConn), msg)) == NULL) {
                 mln_log(error, "No memory.\n");
                 if (c != NULL) mln_chain_pool_release_all(c);
                 portal_proxy_close_handler(ev, fd, data);
                 return;
             }
-            mln_tcp_conn_append(peerTcpConn, c, M_C_SEND);
+            mln_tcp_conn_append(peerTcpConn, trans, M_C_SEND);
             mln_event_set_fd(ev, \
                              mln_tcp_conn_get_fd(peerTcpConn), \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
@@ -338,7 +337,7 @@ static void portal_proxy_close_handler(mln_event_t *ev, int fd, void *data)
                                         conn->channel->connect: \
                                         conn->channel->accept;
 
-    mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, conn, NULL);
+    mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
     portal_connection_free(conn);
     close(fd);
     if (peerConn != NULL) {

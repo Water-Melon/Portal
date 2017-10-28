@@ -16,8 +16,8 @@ portal {
     outerAddr "0.0.0.0:1234";
     innerAddr "127.0.0.1:10376";
     role "client";/* "server" or "client" */
-    inner_timeout 60000;/*ms -- ping timeout*/
-    outer_timeout 30000;/*ms -- connection timeout (only used on server)*/
+    inner_timeout -1;/*ms -- ping timeout*/
+    outer_timeout -1;/*ms -- connection timeout (only used on server)*/
     retry_timeout 500;/*ms -- re-connect timeout (only used on client)*/
     mode "negative";/* "positive" or "negative" */
     as "proxy";

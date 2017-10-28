@@ -13,11 +13,11 @@ log_path "./logs/portal_proxySrv.log";
 portal {
     certify_token "abcdfg"; /*rc4 secret key*/
     tunnel_number 1000; /*only used on client*/
-    outerAddr "127.0.0.1:80";
+    outerAddr "127.0.0.1:22";
     innerAddr "0.0.0.0:10376";
     role "server";/* "server" or "client" */
-    inner_timeout 60000;/*ms -- ping timeout*/
-    outer_timeout 30000;/*ms -- connection timeout (only used on server)*/
+    inner_timeout -1;/*ms -- ping timeout*/
+    outer_timeout -1;/*ms -- connection timeout (only used on server)*/
     retry_timeout 500;/*ms -- re-connect timeout (only used on client)*/
     mode "negative";/* "positive" or "negative" */
     as "proxy";
