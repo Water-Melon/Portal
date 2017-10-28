@@ -86,14 +86,20 @@ log_path "/usr/local/melon/logs/melon.log";
  */
 portal {
     certify_token "abcdfg"; /*rc4 secret key, client's and server's must be identical.*/
-    tunnel_number 100; /*only used on client*/
+    tunnel_number 100; /*only used on Tunnel client*/
     outerAddr "127.0.0.1:9999"; /*the address for accessing all other service*/
     innerAddr "0.0.0.0:1234";/*the address for accessing client or server*/
     role "server";/* "server" or "client" */
-    inner_timeout 3000;/*ms -- ping timeout*/
-    outer_timeout 3000;/*ms -- connection timeout (only used on server)*/
-    retry_timeout 3000;/*ms -- re-connect timeout (only used on client)*/
     /*
+     * timeout:
+     * -1 means never timeout.
+     * < -1 will raise a fault while starting up.
+     */
+    inner_timeout 3000;/*ms -- ping timeout in Tunnel, connection timeour in Proxy.*/
+    outer_timeout 3000;/*ms -- connection timeout (not used on Tunnel client)*/
+    retry_timeout 3000;/*ms -- re-connect timeout (only used on Tunnel client)*/
+    /*
+     * mode only used on Tunnel.
      * There are two cases.
      * 1. A client connects to the server and it will send TCP data at first.
      * 2. A client connects to the server and wait for receiving data from server.
@@ -103,6 +109,7 @@ portal {
      * This configuration item only works on client.
      */
     mode "positive";/* "positive" or "negative" */
+    as "proxy";/*proxy or tunnel, indicates Portal will be used as a proxy or tunnel*/
 }
 ```
 
@@ -116,15 +123,29 @@ In its configuration file, we can see some configuration items can modify system
 
 After initialization, the uid of the process will be modified to the user that assigned by configuration item *user*.
 
-After all preparations, you can run our script file to start up Portal server (or client).
+After all preparations, you can run our script file to start up.
+
+Tunnel Server:
 
 ```
 sudo ./server
 ```
 
-or
+Tunnel Client:
 
 ```
 sudo ./client
+```
+
+Proxy Server:
+
+```
+sudo ./proxySrv
+```
+
+Proxy Client:
+
+```
+sudo ./proxyCli
 ```
 
