@@ -293,7 +293,6 @@ again:
     if (ret == PORTAL_MSG_RET_OK) {
         if (msg->type == PORTAL_MSG_TYPE_DATA) {
             if ((trans = portal_msg_extractFromMsg(mln_tcp_conn_get_pool(peerConn), msg)) == NULL) {
-                mln_log(error, "No memory.\n");
                 if (c != NULL) mln_chain_pool_release_all(c);
                 portal_proxy_close_handler(ev, fd, data);
                 return;

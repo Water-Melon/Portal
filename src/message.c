@@ -146,9 +146,19 @@ int portal_msg_chain2msg(mln_chain_t **c, portal_message_t *msg)
                 portal_msg_init(msg);
                 return PORTAL_MSG_RET_ERROR;
             }
-        default:
+        case PORTAL_MSG_STAGE_DATA:
             wrt = msg->len - msg->left;
             rc = __portal_msg_getBytes(c, msg->buf+wrt, &(msg->left));
+            if (rc != PORTAL_MSG_RET_OK) {
+                if (rc == PORTAL_MSG_RET_ERROR)
+                    portal_msg_init(msg);
+                return rc;
+            }
+            msg->stage = PORTAL_MSG_STAGE_HASH;
+            msg->left = PORTAL_KEY_LEN;
+        default:
+            wrt = PORTAL_KEY_LEN - msg->left;
+            rc = __portal_msg_getBytes(c, msg->hash+wrt, &(msg->left));
             if (rc != PORTAL_MSG_RET_OK) {
                 if (rc == PORTAL_MSG_RET_ERROR)
                     portal_msg_init(msg);
@@ -176,7 +186,7 @@ mln_chain_t *portal_msg_msg2chain(mln_alloc_t *pool, portal_message_t *msg)
         return NULL;
     }
     c->buf = b;
-    blen = sizeof(mln_u32_t)*2 + PORTAL_KEY_LEN*2 + msg->len + sizeof(mln_u64_t)*2;
+    blen = sizeof(mln_u32_t)*2 + PORTAL_KEY_LEN*3 + msg->len + sizeof(mln_u64_t)*2;
     if ((buf = (mln_u8ptr_t)mln_alloc_m(pool, blen)) == NULL) {
         mln_chain_pool_release(c);
         return NULL;
@@ -195,6 +205,8 @@ mln_chain_t *portal_msg_msg2chain(mln_alloc_t *pool, portal_message_t *msg)
     buf += PORTAL_KEY_LEN;
     portal_littleendian_encode(buf, sizeof(msg->len), msg->len);
     memcpy(buf, msg->buf, msg->len);
+    buf += msg->len;
+    memcpy(buf, msg->hash, PORTAL_KEY_LEN);
 
     return c;
 }
@@ -203,22 +215,35 @@ mln_chain_t *portal_msg_extractFromMsg(mln_alloc_t *pool, portal_message_t *msg)
 {
     if (!msg->len) {
         mln_log(error, "Length cannot be zero.\n");
-        abort();
+        return NULL;
     }
     mln_chain_t *c;
     mln_buf_t *b;
     mln_u8ptr_t buf;
     mln_u8_t tmpbuf[256];
+    mln_u8_t hash[PORTAL_KEY_LEN];
+    mln_sha256_t sha;
+
+    mln_sha256_init(&sha);
+    mln_sha256_calc(&sha, msg->buf, msg->len, 1);
+    mln_sha256_toBytes(&sha, hash, PORTAL_KEY_LEN);
+    if (memcmp(msg->hash, hash, PORTAL_KEY_LEN)) {
+        mln_log(error, "Message hash not identical.\n");
+        return NULL;
+    }
 
     if ((c = mln_chain_new(pool)) == NULL) {
+        mln_log(error, "No memory.\n");
         return NULL;
     }
     if ((b = mln_buf_new(pool)) == NULL) {
+        mln_log(error, "No memory.\n");
         mln_chain_pool_release(c);
         return NULL;
     }
     c->buf = b;
     if ((buf = (mln_u8ptr_t)mln_alloc_m(pool, msg->len)) == NULL) {
+        mln_log(error, "No memory.\n");
         mln_chain_pool_release(c);
         return NULL;
     }
@@ -243,6 +268,7 @@ portal_message_t *portal_msg_packUpMsg(portal_message_t *msg, \
 {
     mln_chain_t *fr;
     mln_u32_t len;
+    mln_sha256_t sha;
 
     while (c != NULL && *c != NULL) {
         if ((*c)->buf == NULL || !mln_buf_left_size((*c)->buf)) {
@@ -288,7 +314,13 @@ portal_message_t *portal_msg_packUpMsg(portal_message_t *msg, \
         srandom(tv.tv_sec*1000000+tv.tv_usec);
         mln_u32_t uninit = random() & 0xffffffff;
         memcpy(msg->buf, &uninit, msg->len);
+    } else {
+        mln_log(error, "Shouldn't be here.\n");
+        abort();
     }
+    mln_sha256_init(&sha);
+    mln_sha256_calc(&sha, msg->buf, msg->len, 1);
+    mln_sha256_toBytes(&sha, msg->hash, PORTAL_KEY_LEN);
 
     return msg;
 }

@@ -16,6 +16,7 @@
 #define PORTAL_MSG_STAGE_CLIENTKEY 4
 #define PORTAL_MSG_STAGE_LEN       5
 #define PORTAL_MSG_STAGE_DATA      6
+#define PORTAL_MSG_STAGE_HASH      7
 #define PORTAL_MSG_TYPE_HELLO      0
 #define PORTAL_MSG_TYPE_ACK        1
 #define PORTAL_MSG_TYPE_BYE        2
@@ -36,6 +37,7 @@ typedef struct portal_message_s {
     mln_u8_t                 serverKey[PORTAL_KEY_LEN];
     mln_u8_t                 clientKey[PORTAL_KEY_LEN];
     mln_u8_t                 buf[PORTAL_MESSAGE_UNITLEN];
+    mln_u8_t                 hash[PORTAL_KEY_LEN];
     struct portal_message_s *prev;
     struct portal_message_s *next;
 } portal_message_t;
@@ -70,6 +72,7 @@ typedef struct portal_message_s {
      (pmsg)->serverKey[0] = 0, \
      (pmsg)->clientKey[0] = 0, \
      (pmsg)->buf[0] = 0, \
+     (pmsg)->hash[0] = 0, \
      (pmsg)->prev = NULL, \
      (pmsg)->next = NULL)
 

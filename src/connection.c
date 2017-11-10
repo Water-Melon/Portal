@@ -290,7 +290,6 @@ int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message
         c = portal_msg_extractFromMsg(mln_tcp_conn_get_pool(tcpConn), scan);
         if (c == NULL) {
             if (c_head != NULL) mln_chain_pool_release_all(c_head);
-            mln_log(error, "No memory.\n");
             return -1;
         }
         if (c_head == NULL) {
