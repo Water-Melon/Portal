@@ -180,7 +180,7 @@ static void portal_client_connect_test(mln_event_t *ev, int fd, void *data, conn
             }
             fdClose_dataSet_free(dataSet);
         } else {
-            memcpy(portal_connection_getRemoteKey(conn), msg->serverKey, __M_SHA_BUFLEN);
+            memcpy(portal_connection_getRemoteKey(conn), msg->serverKey, PORTAL_KEY_LEN);
             fdClose_dataSet_free(dataSet);
         }
     }
@@ -292,18 +292,18 @@ newconn:
                     portal_connection_t tmp;
                     tmp.type = outer;
                     tmp.localKey[0] = 0;
-                    memcpy(tmp.remoteKey, msg->serverKey, __M_SHA_BUFLEN);
+                    memcpy(tmp.remoteKey, msg->serverKey, PORTAL_KEY_LEN);
                     portal_client_close_handler(ev, -1, &tmp);
                 } else if (portal_client_connect(ev, outer, msgdata) < 0) {
                     portal_message_free(msgdata);
                     portal_connection_t tmp;
                     tmp.type = outer;
                     tmp.localKey[0] = 0;
-                    memcpy(tmp.remoteKey, msg->serverKey, __M_SHA_BUFLEN);
+                    memcpy(tmp.remoteKey, msg->serverKey, PORTAL_KEY_LEN);
                     portal_client_close_handler(ev, -1, &tmp);
                 }
             } else {
-                memcpy(tmp.localKey, msg->clientKey, __M_SHA_BUFLEN);
+                memcpy(tmp.localKey, msg->clientKey, PORTAL_KEY_LEN);
                 rn = mln_rbtree_search(gOuterSet, gOuterSet->root, &tmp);
                 if (!mln_rbtree_null(rn, gOuterSet)) {
                     outerConn = (portal_connection_t *)(rn->data);
@@ -336,7 +336,7 @@ newconn:
         } else if (msg->type == PORTAL_MSG_TYPE_ACK) {
             /*do nothing*/
         } else if (msg->type == PORTAL_MSG_TYPE_BYE) {
-            memcpy(tmp.localKey, msg->clientKey, __M_SHA_BUFLEN);
+            memcpy(tmp.localKey, msg->clientKey, PORTAL_KEY_LEN);
             rn = mln_rbtree_search(gOuterSet, gOuterSet->root, &tmp);
             if (!mln_rbtree_null(rn, gOuterSet)) {
                 outerConn = (portal_connection_t *)(rn->data);
@@ -516,7 +516,7 @@ static int portal_client_sortAndBuildChain(mln_event_t *ev, portal_connection_t 
     mln_tcp_conn_t *outerTcpConn = portal_connection_getTcpConn(outerConn);
     portal_message_t *dup;
 
-    memcpy(portal_connection_getRemoteKey(outerConn), msg->serverKey, __M_SHA_BUFLEN);
+    memcpy(portal_connection_getRemoteKey(outerConn), msg->serverKey, PORTAL_KEY_LEN);
     if ((dup = portal_message_dup(msg)) == NULL) {
         mln_log(error, "No memory.\n");
         return -1;

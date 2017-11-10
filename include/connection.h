@@ -8,6 +8,7 @@
 #include "mln_sha.h"
 #include "message.h"
 #include "mln_event.h"
+#include "portal.h"
 
 #define __CONNECTION_IP_LEN  64
 
@@ -20,8 +21,8 @@ typedef enum {
 
 typedef struct portal_connection_s {
     conn_type_t                 type;
-    mln_u8_t                    localKey[__M_SHA_BUFLEN];
-    mln_u8_t                    remoteKey[__M_SHA_BUFLEN];
+    mln_u8_t                    localKey[PORTAL_KEY_LEN];
+    mln_u8_t                    remoteKey[PORTAL_KEY_LEN];
     mln_tcp_conn_t              conn;
     portal_message_t            msg;
     mln_alloc_t                *pool;

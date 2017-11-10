@@ -7,9 +7,10 @@
 #include "mln_core.h"
 #include "mln_conf.h"
 #include "mln_global.h"
-#include "message.h"
 #include "mln_rbtree.h"
+#include "mln_sha.h"
 
+#define PORTAL_KEY_LEN             (__M_SHA_BUFLEN>>1)
 
 extern mln_rbtree_t *gInnerSet;
 extern mln_rbtree_t *gOuterSet;

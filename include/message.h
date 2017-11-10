@@ -6,9 +6,8 @@
 
 #include "mln_chain.h"
 #include "mln_alloc.h"
-#include "mln_sha.h"
+#include "portal.h"
 
-#define PORTAL_KEY_LEN             __M_SHA_BUFLEN
 #define PORTAL_MESSAGE_UNITLEN     1024
 #define PORTAL_MSG_STAGE_SEQHIGH   0
 #define PORTAL_MSG_STAGE_SEQLOW    1

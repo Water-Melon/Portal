@@ -407,7 +407,7 @@ static int portal_server_sortAndBuildChain(mln_event_t *ev, portal_connection_t 
 {
     mln_chain_t *c = NULL;
     mln_tcp_conn_t *outerTcpConn = portal_connection_getTcpConn(outerConn);
-    memcpy(portal_connection_getRemoteKey(outerConn), msg->clientKey, __M_SHA_BUFLEN);
+    memcpy(portal_connection_getRemoteKey(outerConn), msg->clientKey, PORTAL_KEY_LEN);
     portal_message_t *dup = portal_message_dup(msg);
     if (dup == NULL) {
         mln_log(error, "No memory.\n");
@@ -447,7 +447,7 @@ again:
     ret = portal_msg_chain2msg(&c, msg);
     if (ret == PORTAL_MSG_RET_OK) {
         if (msg->type == PORTAL_MSG_TYPE_DATA) {
-            memcpy(tmp.localKey, msg->serverKey, __M_SHA_BUFLEN);
+            memcpy(tmp.localKey, msg->serverKey, PORTAL_KEY_LEN);
             rn = mln_rbtree_search(gOuterSet, gOuterSet->root, &tmp);
             if (!mln_rbtree_null(rn, gOuterSet)) {
                 outerConn = (portal_connection_t *)(rn->data);
@@ -479,7 +479,7 @@ again:
         } else if (msg->type == PORTAL_MSG_TYPE_ACK) {
             /*do nothing*/
         } else if (msg->type == PORTAL_MSG_TYPE_BYE) {
-            memcpy(tmp.localKey, msg->serverKey, __M_SHA_BUFLEN);
+            memcpy(tmp.localKey, msg->serverKey, PORTAL_KEY_LEN);
             rn = mln_rbtree_search(gOuterSet, gOuterSet->root, &tmp);
             if (!mln_rbtree_null(rn, gOuterSet)) {
                 outerConn = (portal_connection_t *)(rn->data);

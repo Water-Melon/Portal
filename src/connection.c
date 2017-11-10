@@ -5,7 +5,6 @@
 #include "connection.h"
 #include "mln_alloc.h"
 #include "mln_log.h"
-#include "portal.h"
 #include <stdlib.h>
 #include <sys/time.h>
 #include <string.h>
@@ -64,7 +63,7 @@ portal_connection_t *portal_connection_new(int sockfd, char *ip, mln_u16_t port,
     memcpy(hashbuf+6, &time, 8);
     memcpy(hashbuf+14, ip, len);
     mln_sha256_calc(&sha, hashbuf, 14+len, 1);
-    mln_sha256_toString(&sha, (mln_s8ptr_t)(conn->localKey), __M_SHA_BUFLEN);
+    mln_sha256_toBytes(&sha, (mln_u8ptr_t)(conn->localKey), PORTAL_KEY_LEN);
     conn->remoteKey[0] = 0;
     if (mln_tcp_conn_init(&(conn->conn), sockfd)) {
         free(conn);
@@ -143,7 +142,7 @@ void portal_connection_free(portal_connection_t *conn)
 
 int portal_connection_cmp(const portal_connection_t *conn1, const portal_connection_t *conn2)
 {
-    return memcmp(conn1->localKey, conn2->localKey, __M_SHA_BUFLEN);
+    return memcmp(conn1->localKey, conn2->localKey, PORTAL_KEY_LEN);
 }
 
 portal_connection_t *portal_connection_getInnerConn(void)

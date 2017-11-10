@@ -22,11 +22,11 @@ $(PORTAL) : $(OBJS) melon/lib/libmelon.so
 install:
 	test -d /usr/local/portal || mkdir -p /usr/local/portal
 	cp $(PORTAL) /usr/local/portal/
-objs/message.o :include/message.h src/message.c
+objs/message.o :include/message.h src/message.c include/portal.h
 	$(CC) $(FLAGS) -o $@ src/message.c 
 objs/portal.o : include/portal.h include/message.h include/client.h include/server.h include/connection.h src/portal.c include/proxy.h
 	$(CC) $(FLAGS) -o $@ src/portal.c
-objs/connection.o : include/message.h include/connection.h include/portal.h src/connection.c
+objs/connection.o : include/message.h include/connection.h include/portal.h src/connection.c include/portal.h
 	$(CC) $(FLAGS) -o $@ src/connection.c
 objs/server.o : include/server.h include/portal.h include/message.h include/connection.h src/server.c
 	$(CC) $(FLAGS) -o $@ src/server.c
