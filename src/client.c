@@ -46,6 +46,7 @@ static void fdClose_dataSet_free(fdClose_dataSet_t *data)
 
 void portal_client_entrance(mln_event_t *ev)
 {
+    signal(SIGPIPE, SIG_IGN);
     mln_sauto_t i;
     for (i = 0; i < gTunnelNum; ++i) {
         portal_client_connect(ev, inner, NULL);

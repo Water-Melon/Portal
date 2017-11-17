@@ -23,6 +23,7 @@ static int portal_server_sortAndBuildChain(mln_event_t *ev, portal_connection_t 
 
 void portal_server_entrance(mln_event_t *ev)
 {
+    signal(SIGPIPE, SIG_IGN);
     struct sockaddr_in addr;
     int outerSock, innerSock, val;
 
