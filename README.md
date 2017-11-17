@@ -109,7 +109,8 @@ portal {
      * This configuration item only works on client.
      */
     mode "positive";/* "positive" or "negative" */
-    as "proxy";/*proxy or tunnel, indicates Portal will be used as a proxy or tunnel*/
+    as "proxy";/*proxy, tunnel or broadcaster
+                 indicates Portal will be used as a proxy, tunnel or broadcaster*/
 }
 ```
 
@@ -125,27 +126,18 @@ After initialization, the uid of the process will be modified to the user that a
 
 After all preparations, you can run our script file to start up.
 
-Tunnel Server:
-
 ```
-sudo ./server
+sudo ./startup type
 ```
 
-Tunnel Client:
+*type* has 5 values can be chosen:
 
-```
-sudo ./client
-```
+​	*proxy_server* — this type will indicate portal to be started up as a proxy server
 
-Proxy Server:
+​	*proxy_client* — this type will indicate portal to be started up as a proxy client
 
-```
-sudo ./proxySrv
-```
+​	*tunnel_server* — this type will indicate portal to be started up as a tunnel server
 
-Proxy Client:
+​	*tunnel_client* — this type will indicate portal to be started up as a tunnel client
 
-```
-sudo ./proxyCli
-```
-
+​	*broadcaster* — this type will indicate portal to be started up as a broadcaster
