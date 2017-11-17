@@ -6,6 +6,7 @@
 #include "server.h"
 #include "client.h"
 #include "proxy.h"
+#include "broadcaster.h"
 #include "connection.h"
 
 /*
@@ -33,6 +34,7 @@ static char mln_cmd_mode_negative[] = "negative";
 static char mln_cmd_as[] = "as";
 static char mln_cmd_as_tunnel[] = "tunnel";
 static char mln_cmd_as_proxy[] = "proxy";
+static char mln_cmd_as_broadcaster[] = "broadcaster";
 
 static int mln_global_init(void);
 static void mln_worker_process(mln_event_t *ev);
@@ -262,14 +264,7 @@ static int mln_global_init(void)
         fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_as);
         return -1;
     }
-    if (!mln_string_constStrcmp(ci->val.s, mln_cmd_as_tunnel)) {
-        gIsTunnel = 1;
-    } else if (!mln_string_constStrcmp(ci->val.s, mln_cmd_as_proxy)) {
-        gIsTunnel = 0;
-    } else {
-        fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_as);
-        return -1;
-    }
+    gAs = ci->val.s;
 
     /*sets*/
     rbattr.cmp = (rbtree_cmp)portal_connection_cmp;
@@ -287,7 +282,16 @@ static int mln_global_init(void)
 
 static void mln_worker_process(mln_event_t *ev)
 {
-    gIsTunnel? (gIsServer? portal_server_entrance(ev): portal_client_entrance(ev)): portal_proxy_entrance(ev);
+    if (!mln_string_constStrcmp(gAs, mln_cmd_as_tunnel)) {
+        gIsServer? portal_server_entrance(ev): portal_client_entrance(ev);
+    } else if (!mln_string_constStrcmp(gAs, mln_cmd_as_proxy)) {
+        portal_proxy_entrance(ev);
+    } else if (!mln_string_constStrcmp(gAs, mln_cmd_as_broadcaster)) {
+        portal_broadcaster_entrance(ev);
+    } else {
+        mln_log(error, "Invalid configuration '%s'\n", mln_cmd_as);
+        exit(1);
+    }
 }
 
 

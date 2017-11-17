@@ -10,7 +10,8 @@ OBJS		= \
 		objs/connection.o \
 		objs/server.o \
 		objs/client.o \
-		objs/proxy.o
+		objs/proxy.o \
+		objs/broadcaster.o
 .PHONY :	compile install clean
 compile: build $(OBJS) $(PORTAL)
 clean:
@@ -24,7 +25,7 @@ install:
 	cp $(PORTAL) /usr/local/portal/
 objs/message.o :include/message.h src/message.c include/portal.h
 	$(CC) $(FLAGS) -o $@ src/message.c 
-objs/portal.o : include/portal.h include/message.h include/client.h include/server.h include/connection.h src/portal.c include/proxy.h
+objs/portal.o : include/portal.h include/message.h include/client.h include/server.h include/connection.h src/portal.c include/proxy.h include/broadcaster.h
 	$(CC) $(FLAGS) -o $@ src/portal.c
 objs/connection.o : include/message.h include/connection.h include/portal.h src/connection.c include/portal.h
 	$(CC) $(FLAGS) -o $@ src/connection.c
@@ -34,3 +35,5 @@ objs/client.o : include/client.h include/portal.h include/message.h include/conn
 	$(CC) $(FLAGS) -o $@ src/client.c
 objs/proxy.o : include/proxy.h include/portal.h include/message.h include/connection.h src/proxy.c
 	$(CC) $(FLAGS) -o $@ src/proxy.c
+objs/broadcaster.o : include/broadcaster.h include/portal.h include/message.h include/connection.h src/broadcaster.c
+	$(CC) $(FLAGS) -o $@ src/broadcaster.c
