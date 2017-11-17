@@ -1,5 +1,0 @@
-#!/bin/bash
-# 
-# Copyright (C) Niklaus F.Schen.
-# 
-test -d melon && cp confs/melon.conf.cli melon/conf/melon.conf && ./portal
