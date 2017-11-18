@@ -183,7 +183,9 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
             close(connfd);
             break;
         }
-        mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_server_close_handler);
+        if (gOuterTimeout >= 0) {
+            mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_server_close_handler);
+        }
 
         if (trans != NULL) {
             innerTcpConn = portal_connection_getTcpConn(innerConn);
@@ -262,7 +264,9 @@ static void portal_server_outer_recv_handler(mln_event_t *ev, int fd, void *data
                              gOuterTimeout, \
                              outerConn, \
                              portal_server_outer_recv_handler);
-            mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_close_handler);
+            if (gOuterTimeout >= 0) {
+                mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_close_handler);
+            }
         }
     }
 }
@@ -372,7 +376,9 @@ static void portal_server_inner_accept_handler(mln_event_t *ev, int fd, void *da
             close(connfd);
             break;
         }
-        mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_server_inner_ping_handler);
+        if (gInnerTimeout >= 0) {
+            mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_server_inner_ping_handler);
+        }
         mln_log(report, "Inner %s:%u Connected.\n", ip, port);
     }
 }
@@ -549,7 +555,9 @@ static void portal_server_send_handler(mln_event_t *ev, int fd, void *data)
                                  gOuterTimeout, \
                                  data, \
                                  portal_server_outer_recv_handler);
-                mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_close_handler);
+                if (gOuterTimeout >= 0) {
+                    mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_close_handler);
+                }
             } else {
                 mln_event_set_fd(ev, \
                                  fd, \
@@ -557,7 +565,9 @@ static void portal_server_send_handler(mln_event_t *ev, int fd, void *data)
                                  gInnerTimeout, \
                                  data, \
                                  portal_server_inner_recv_handler);
-                mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_inner_ping_handler);
+                if (gInnerTimeout >= 0) {
+                    mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_inner_ping_handler);
+                }
             }
         }
     } else if (rc == M_C_ERROR) {

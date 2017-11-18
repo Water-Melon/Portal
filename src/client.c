@@ -170,7 +170,9 @@ static void portal_client_connect_test(mln_event_t *ev, int fd, void *data, conn
         return;
     }
     if (type == inner) {
-        mln_event_set_fd_timeout_handler(ev, fd, conn, portal_client_inner_ping_handler);
+        if (gInnerTimeout >= 0) {
+            mln_event_set_fd_timeout_handler(ev, fd, conn, portal_client_inner_ping_handler);
+        }
     } else if (data != NULL) {/*outer*/
         fdClose_dataSet_t *dataSet = (fdClose_dataSet_t *)data;
         portal_message_t *msg = (portal_message_t *)(dataSet->data);
@@ -415,7 +417,9 @@ static void portal_client_send_handler(mln_event_t *ev, int fd, void *data)
                                  gInnerTimeout, \
                                  data, \
                                  portal_client_inner_recv_handler);
-                mln_event_set_fd_timeout_handler(ev, fd, data, portal_client_inner_ping_handler);
+                if (gInnerTimeout >= 0) {
+                    mln_event_set_fd_timeout_handler(ev, fd, data, portal_client_inner_ping_handler);
+                }
             }
         }
     } else if (rc == M_C_ERROR) {

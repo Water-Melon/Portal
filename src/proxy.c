@@ -213,7 +213,9 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
                      gIsServer? gOuterTimeout: gInnerTimeout, \
                      conn, \
                      handler);
-    mln_event_set_fd_timeout_handler(ev, fd, conn, portal_proxy_close_handler);
+    if ((gIsServer? gOuterTimeout: gInnerTimeout) >= 0) {
+        mln_event_set_fd_timeout_handler(ev, fd, conn, portal_proxy_close_handler);
+    }
     handler = gIsServer? portal_proxy_msg_recv_handler: portal_proxy_raw_recv_handler;
     mln_event_set_fd(ev, \
                      acceptFd, \
@@ -221,7 +223,9 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
                      gIsServer? gInnerTimeout: gOuterTimeout, \
                      ch->accept, \
                      handler);
-    mln_event_set_fd_timeout_handler(ev, acceptFd, ch->accept, portal_proxy_close_handler);
+    if ((gIsServer? gInnerTimeout: gOuterTimeout) >= 0) {
+        mln_event_set_fd_timeout_handler(ev, acceptFd, ch->accept, portal_proxy_close_handler);
+    }
 }
 
 static void portal_proxy_raw_recv_handler(mln_event_t *ev, int fd, void *data)
@@ -404,7 +408,9 @@ static void portal_proxy_send_handler(mln_event_t *ev, int fd, void *data)
                              timeout, \
                              data, \
                              handler);
-            mln_event_set_fd_timeout_handler(ev, fd, data, portal_proxy_close_handler);
+            if (timeout >= 0) {
+                mln_event_set_fd_timeout_handler(ev, fd, data, portal_proxy_close_handler);
+            }
         }
     } else if (rc == M_C_ERROR) {
         mln_log(error, "send error. %s\n", strerror(errno));

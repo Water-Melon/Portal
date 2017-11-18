@@ -128,7 +128,9 @@ static void portal_broadcaster_accept_handler(mln_event_t *ev, int fd, void *dat
             close(connfd);
             break;
         }
-        mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_broadcaster_close_handler);
+        if (gInnerTimeout >= 0) {
+            mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_broadcaster_close_handler);
+        }
 
         mln_log(report, "%s %s:%u Connected.\n", type==inner?"Inner":"Outer", ip, port);
     }
@@ -221,7 +223,9 @@ static void portal_broadcaster_send_handler(mln_event_t *ev, int fd, void *data)
                              gInnerTimeout, \
                              data, \
                              portal_broadcaster_msg_recv_handler);
-            mln_event_set_fd_timeout_handler(ev, fd, data, portal_broadcaster_close_handler);
+            if (gInnerTimeout >= 0) {
+                mln_event_set_fd_timeout_handler(ev, fd, data, portal_broadcaster_close_handler);
+            }
         }
     } else if (rc == M_C_ERROR) {
         mln_log(error, "send error. %s\n", strerror(errno));
