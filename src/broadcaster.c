@@ -182,8 +182,21 @@ again:
     if (rc == M_C_ERROR) {
         mln_log(error, "recv error. %s\n", strerror(err));
         portal_broadcaster_close_handler(ev, fd, data);
+        return;
     } else if (rc == M_C_CLOSED) {
         portal_broadcaster_close_handler(ev, fd, data);
+        return;
+    }
+    if (mln_tcp_conn_get_head(tcpConn, M_C_SEND) == NULL) {
+        mln_event_set_fd(ev, \
+                         fd, \
+                         M_EV_RECV|M_EV_NONBLOCK, \
+                         gInnerTimeout, \
+                         data, \
+                         portal_broadcaster_msg_recv_handler);
+        if (gInnerTimeout >= 0) {
+            mln_event_set_fd_timeout_handler(ev, fd, data, portal_broadcaster_close_handler);
+        }
     }
 }
 
