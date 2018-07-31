@@ -3,14 +3,18 @@
 # Copyright (C) Niklaus F.Schen.
 # 
 
+arm=`cpp -dM /dev/null | grep __arm__`
+if [ '$arm' != "" ]; then
+	arm='--enable_arm32'
+fi
+
 test -d objs || mkdir objs
 test -d lib || mkdir lib
 test -d Melon || git clone https://github.com/Water-Melon/Melon.git
 dir=`pwd`
-cp -f mln_global.h Melon/include/
 cd Melon
 make clean
-./configure --prefix=$dir/melon
+./configure --prefix=$dir/melon $arm
 make
 make install
 cp -f lib/* ../lib

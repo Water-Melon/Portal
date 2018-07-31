@@ -14,6 +14,19 @@
  */
 mln_rbtree_t *gInnerSet;
 mln_rbtree_t *gOuterSet;
+void *GlobalUnusedVar;
+mln_size_t gTunnelNum;
+mln_u8_t gIsServer;
+mln_u8_t gIsPositive;
+char gOuterIP[48];
+char gInnerIP[48];
+mln_u16_t gOuterPort;
+mln_u16_t gInnerPort;
+mln_string_t *gCertKey;
+mln_sauto_t gInnerTimeout;
+mln_sauto_t gOuterTimeout;
+mln_sauto_t gRetryTimeout;
+mln_string_t *gAs;
 
 
 static char mln_domain_portal[] = "portal";
