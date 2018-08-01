@@ -1,8 +1,14 @@
 # 
 # Copyright (C) Niklaus F.Schen.
 # 
+ISARM		= `cpp -dM /dev/null | grep __arm__`
+ifeq ($(ISARM), "")
+ARMFLAG		= ""
+else
+ARMFLAG		= "-DMLN_ARM32"
+endif
 CC		= cc
-FLAGS		= -c -Wall -ggdb -Werror -O3 -I./melon/include -Iinclude
+FLAGS		= -c -Wall -ggdb -Werror -O3 -I./melon/include -Iinclude $(ARMFLAG)
 PORTAL		= portal
 OBJS		= \
 		objs/message.o \
