@@ -4,8 +4,10 @@
 # 
 
 arm=`cpp -dM /dev/null | grep __arm__`
-if [ '$arm' != "" ]; then
+if [ $? -eq 0 ]; then
 	arm='--enable_arm32'
+else
+	arm=''
 fi
 
 test -d objs || mkdir objs
