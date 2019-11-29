@@ -38,7 +38,7 @@ static fdClose_dataSet_t *fdClose_dataSet_new(conn_type_t type, void *data)
 static void fdClose_dataSet_free(fdClose_dataSet_t *data)
 {
     if (data == NULL) return;
-    if (data->type == outer && data->data != NULL) {
+    if (data->data != NULL) {
         portal_message_free((portal_message_t *)(data->data));
     }
     free(data);
@@ -235,8 +235,8 @@ static void portal_client_outer_recv_handler(mln_event_t *ev, int fd, void *data
     c = mln_tcp_conn_remove(outerTcpConn, M_C_RECV);
     while (c != NULL) {
         seqLow = outerConn->sndSeqLow++;
-        if (outerConn->sndSeqLow == 0) ++outerConn->sndSeqHigh;
         seqHigh = outerConn->sndSeqHigh;
+        if (outerConn->sndSeqLow == 0) ++outerConn->sndSeqHigh;
         msg = portal_msg_packUpMsg(portal_connection_getMsg(outerConn), \
                                    &c, \
                                    portal_connection_getRemoteKey(outerConn), \
