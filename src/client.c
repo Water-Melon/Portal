@@ -391,7 +391,7 @@ static void portal_client_send_handler(mln_event_t *ev, int fd, void *data)
     if (rc == M_C_FINISH || rc == M_C_NOTYET) {
         c = mln_tcp_conn_remove(tcpConn, M_C_SENT);
         mln_chain_pool_release_all(c);
-        if (rc == M_C_NOTYET && mln_tcp_conn_get_head(tcpConn, M_C_SEND) != NULL) {
+        if (mln_tcp_conn_get_head(tcpConn, M_C_SEND) != NULL) {
             mln_event_set_fd(ev, \
                              fd, \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
@@ -479,8 +479,8 @@ static void portal_client_close_handler(mln_event_t *ev, int fd, void *data)
     if (innerConn != NULL) {
         mln_tcp_conn_t *innerTcpConn = portal_connection_getTcpConn(innerConn);
         seqLow = conn->sndSeqLow++;
-        if (conn->sndSeqLow == 0) ++conn->sndSeqHigh;
         seqHigh = conn->sndSeqHigh;
+        if (conn->sndSeqLow == 0) ++conn->sndSeqHigh;
         msg = portal_msg_packUpMsg(portal_connection_getMsg(conn), \
                                    NULL, \
                                    portal_connection_getRemoteKey(conn), \

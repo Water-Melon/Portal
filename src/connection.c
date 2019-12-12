@@ -167,6 +167,7 @@ void portal_connection_moveChain(mln_event_t *ev, portal_connection_t *src, ev_f
     mln_u64_t size;
     mln_chain_t *rcvHead = NULL, *rcvTail = NULL;
     mln_chain_t *sndHead = NULL, *sndTail = NULL;
+    mln_chain_t *sntHead = NULL, *sntTail = NULL;
     mln_chain_t *c, *move;
     mln_tcp_conn_t *srcTcpConn = &(src->conn), *destTcpConn = &(dest->conn);
     mln_alloc_t *pool = mln_tcp_conn_get_pool(destTcpConn);
@@ -227,9 +228,41 @@ void portal_connection_moveChain(mln_event_t *ev, portal_connection_t *src, ev_f
         }
     }
 
+    c = mln_tcp_conn_get_head(srcTcpConn, M_C_SENT);
+    for (; c != NULL; c = c->next) {
+        if (c->buf != NULL && (size = mln_buf_left_size(c->buf))) {
+            buf = (mln_u8ptr_t)mln_alloc_m(pool, size);
+            if (buf == NULL) goto err;
+            memcpy(buf, c->buf->left_pos, size);
+            if ((b = mln_buf_new(pool)) == NULL) {
+                mln_alloc_free(buf);
+                goto err;
+            }
+            b->left_pos = b->pos = b->start = buf;
+            b->last = b->end = buf + size;
+            b->in_memory = 1;
+            b->last_buf = 1;
+            if ((move = mln_chain_new(pool)) == NULL) {
+                mln_buf_pool_release(b);
+                goto err;
+            }
+            move->buf = b;
+            if (sntHead == NULL) {
+                sntHead = sntTail = move;
+            } else {
+                sntTail->next = move;
+                sntTail = move;
+            }
+        }
+    }
+
     if (rcvHead != NULL) {
         mln_tcp_conn_append_chain(destTcpConn, rcvHead, rcvTail, M_C_RECV);
         recv(ev, mln_tcp_conn_get_fd(destTcpConn), dest);
+    }
+    if (sntHead != NULL) {
+        mln_tcp_conn_append_chain(destTcpConn, sntHead, sntTail, M_C_SEND);
+        send(ev, mln_tcp_conn_get_fd(destTcpConn), dest);
     }
     if (sndHead != NULL) {
         mln_tcp_conn_append_chain(destTcpConn, sndHead, sndTail, M_C_SEND);
@@ -239,6 +272,7 @@ void portal_connection_moveChain(mln_event_t *ev, portal_connection_t *src, ev_f
 err:
     if (rcvHead != NULL) mln_chain_pool_release_all(rcvHead);
     if (sndHead != NULL) mln_chain_pool_release_all(sndHead);
+    if (sntHead != NULL) mln_chain_pool_release_all(sntHead);
 }
 
 int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message_t *msg, mln_chain_t **out)
@@ -250,15 +284,20 @@ int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message
     if ((msg->seqHigh < conn->rcvSeqHigh) || \
         (msg->seqHigh == conn->rcvSeqHigh && msg->seqLow < conn->rcvSeqLow))
     {
-        mln_log(error, "Invalid message.\n");
         portal_message_free(msg);
-        return -1;
+	*out = NULL;
+        return 0;
     }
 
     for (; scan != NULL; scan = scan->next) {
         if ((scan->seqHigh > msg->seqHigh) || \
             (scan->seqHigh == msg->seqHigh && scan->seqLow >= msg->seqLow))
         {
+            if (scan->seqHigh == msg->seqHigh && scan->seqLow == msg->seqLow) {
+                portal_message_free(msg);
+	        *out = NULL;
+                return 0;
+            }
             break;
         }
     }
