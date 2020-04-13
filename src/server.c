@@ -136,7 +136,7 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
             close(connfd);
             continue;
         }
-        if ((rn = mln_rbtree_new_node(gOuterSet, conn)) == NULL) {
+        if ((rn = mln_rbtree_node_new(gOuterSet, conn)) == NULL) {
             portal_connection_free(conn);
             mln_log(error, "No memory.\n");
             close(connfd);
@@ -148,7 +148,7 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
             innerConn = portal_connection_getInnerConn();
             if (innerConn == NULL) {
                 mln_rbtree_delete(gOuterSet, rn);
-                mln_rbtree_free_node(gOuterSet, rn);
+                mln_rbtree_node_free(gOuterSet, rn);
                 mln_log(error, "No inner connection available.\n");
                 close(connfd);
                 break;
@@ -163,7 +163,7 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
             if ((trans = portal_msg_msg2chain(portal_connection_getPool(innerConn), msg)) == NULL) {
                 mln_log(error, "No memory.\n");
                 mln_rbtree_delete(gOuterSet, rn);
-                mln_rbtree_free_node(gOuterSet, rn);
+                mln_rbtree_node_free(gOuterSet, rn);
                 close(connfd);
                 break;
             }
@@ -178,7 +178,7 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
         {
             if (trans != NULL) mln_chain_pool_release(trans);
             mln_rbtree_delete(gOuterSet, rn);
-            mln_rbtree_free_node(gOuterSet, rn);
+            mln_rbtree_node_free(gOuterSet, rn);
             mln_log(error, "No memory.\n");
             close(connfd);
             break;
@@ -315,7 +315,7 @@ static void portal_server_close_handler(mln_event_t *ev, int fd, void *data)
     rn = mln_rbtree_search(tree, tree->root, conn);
     if (!mln_rbtree_null(rn, tree)) {
         mln_rbtree_delete(tree, rn);
-        mln_rbtree_free_node(tree, rn);
+        mln_rbtree_node_free(tree, rn);
     } else {
         portal_connection_free(conn);
     }
@@ -356,7 +356,7 @@ static void portal_server_inner_accept_handler(mln_event_t *ev, int fd, void *da
             close(connfd);
             continue;
         }
-        if ((rn = mln_rbtree_new_node(gInnerSet, conn)) == NULL) {
+        if ((rn = mln_rbtree_node_new(gInnerSet, conn)) == NULL) {
             portal_connection_free(conn);
             mln_log(error, "No memory.\n");
             close(connfd);
@@ -371,7 +371,7 @@ static void portal_server_inner_accept_handler(mln_event_t *ev, int fd, void *da
                              portal_server_inner_recv_handler) < 0)
         {
             mln_rbtree_delete(gInnerSet, rn);
-            mln_rbtree_free_node(gInnerSet, rn);
+            mln_rbtree_node_free(gInnerSet, rn);
             mln_log(error, "No memory.\n");
             close(connfd);
             break;

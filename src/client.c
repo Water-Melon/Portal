@@ -140,7 +140,7 @@ static void portal_client_connect_test(mln_event_t *ev, int fd, void *data, conn
         return;
     }
     tree = type == outer? gOuterSet: gInnerSet;
-    if ((rn = mln_rbtree_new_node(tree, conn)) == NULL) {
+    if ((rn = mln_rbtree_node_new(tree, conn)) == NULL) {
         mln_log(error, "No memory.\n");
         portal_connection_free(conn);
         portal_client_fdClose_handler(ev, fd, data);
@@ -165,7 +165,7 @@ static void portal_client_connect_test(mln_event_t *ev, int fd, void *data, conn
     if (rc < 0) {
         mln_log(error, "No memory.\n");
         mln_rbtree_delete(tree, rn);
-        mln_rbtree_free_node(tree, rn);
+        mln_rbtree_node_free(tree, rn);
         portal_client_fdClose_handler(ev, fd, data);
         return;
     }
@@ -504,7 +504,7 @@ static void portal_client_close_handler(mln_event_t *ev, int fd, void *data)
         rn = mln_rbtree_search(tree, tree->root, conn);
         if (!mln_rbtree_null(rn, tree)) {
             mln_rbtree_delete(tree, rn);
-            mln_rbtree_free_node(tree, rn);
+            mln_rbtree_node_free(tree, rn);
         } else {
             portal_connection_free(conn);
         }

@@ -107,7 +107,7 @@ static void portal_broadcaster_accept_handler(mln_event_t *ev, int fd, void *dat
             close(connfd);
             continue;
         }
-        if ((rn = mln_rbtree_new_node(gInnerSet, conn)) == NULL) {
+        if ((rn = mln_rbtree_node_new(gInnerSet, conn)) == NULL) {
             portal_connection_free(conn);
             mln_log(error, "No memory.\n");
             close(connfd);
@@ -124,7 +124,7 @@ static void portal_broadcaster_accept_handler(mln_event_t *ev, int fd, void *dat
         {
             mln_log(error, "No memory.\n");
             mln_rbtree_delete(gInnerSet, rn);
-            mln_rbtree_free_node(gInnerSet, rn);
+            mln_rbtree_node_free(gInnerSet, rn);
             close(connfd);
             break;
         }
@@ -207,7 +207,7 @@ static void portal_broadcaster_close_handler(mln_event_t *ev, int fd, void *data
     mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
     rn = mln_rbtree_search(gInnerSet, gInnerSet->root, conn);
     mln_rbtree_delete(gInnerSet, rn);
-    mln_rbtree_free_node(gInnerSet, rn);
+    mln_rbtree_node_free(gInnerSet, rn);
     close(fd);
 }
 
