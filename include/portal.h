@@ -8,6 +8,7 @@
 #include "mln_conf.h"
 #include "mln_rbtree.h"
 #include "mln_sha.h"
+#include "mln_log.h"
 
 #define PORTAL_KEY_LEN             (__M_SHA_BUFLEN>>1)
 

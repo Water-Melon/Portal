@@ -226,7 +226,7 @@ mln_chain_t *portal_msg_extractFromMsg(mln_alloc_t *pool, portal_message_t *msg)
 
     mln_sha256_init(&sha);
     mln_sha256_calc(&sha, msg->buf, msg->len, 1);
-    mln_sha256_toBytes(&sha, hash, PORTAL_KEY_LEN);
+    mln_sha256_tobytes(&sha, hash, PORTAL_KEY_LEN);
     if (memcmp(msg->hash, hash, PORTAL_KEY_LEN)) {
         mln_log(error, "Message hash not identical.\n");
         return NULL;
@@ -320,7 +320,7 @@ portal_message_t *portal_msg_packUpMsg(portal_message_t *msg, \
     }
     mln_sha256_init(&sha);
     mln_sha256_calc(&sha, msg->buf, msg->len, 1);
-    mln_sha256_toBytes(&sha, msg->hash, PORTAL_KEY_LEN);
+    mln_sha256_tobytes(&sha, msg->hash, PORTAL_KEY_LEN);
 
     return msg;
 }

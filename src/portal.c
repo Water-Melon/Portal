@@ -160,9 +160,9 @@ static int mln_global_init(void)
         fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_role);
         return -1;
     }
-    if (!mln_string_constStrcmp(ci->val.s, mln_cmd_role_server)) {
+    if (!mln_string_const_strcmp(ci->val.s, mln_cmd_role_server)) {
         gIsServer = 1;
-    } else if (!mln_string_constStrcmp(ci->val.s, mln_cmd_role_client)) {
+    } else if (!mln_string_const_strcmp(ci->val.s, mln_cmd_role_client)) {
         gIsServer = 0;
     } else {
         fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_role);
@@ -182,9 +182,9 @@ static int mln_global_init(void)
         fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_mode);
         return -1;
     }
-    if (!mln_string_constStrcmp(ci->val.s, mln_cmd_mode_positive)) {
+    if (!mln_string_const_strcmp(ci->val.s, mln_cmd_mode_positive)) {
         gIsPositive = 1;
-    } else if (!mln_string_constStrcmp(ci->val.s, mln_cmd_mode_negative)) {
+    } else if (!mln_string_const_strcmp(ci->val.s, mln_cmd_mode_negative)) {
         gIsPositive = 0;
     } else {
         fprintf(stderr, "Invalid parameter of command '%s'.\n", mln_cmd_mode);
@@ -295,11 +295,11 @@ static int mln_global_init(void)
 
 static void mln_worker_process(mln_event_t *ev)
 {
-    if (!mln_string_constStrcmp(gAs, mln_cmd_as_tunnel)) {
+    if (!mln_string_const_strcmp(gAs, mln_cmd_as_tunnel)) {
         gIsServer? portal_server_entrance(ev): portal_client_entrance(ev);
-    } else if (!mln_string_constStrcmp(gAs, mln_cmd_as_proxy)) {
+    } else if (!mln_string_const_strcmp(gAs, mln_cmd_as_proxy)) {
         portal_proxy_entrance(ev);
-    } else if (!mln_string_constStrcmp(gAs, mln_cmd_as_broadcaster)) {
+    } else if (!mln_string_const_strcmp(gAs, mln_cmd_as_broadcaster)) {
         portal_broadcaster_entrance(ev);
     } else {
         mln_log(error, "Invalid configuration '%s'\n", mln_cmd_as);

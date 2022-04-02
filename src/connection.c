@@ -63,7 +63,7 @@ portal_connection_t *portal_connection_new(int sockfd, char *ip, mln_u16_t port,
     memcpy(hashbuf+6, &time, 8);
     memcpy(hashbuf+14, ip, len);
     mln_sha256_calc(&sha, hashbuf, 14+len, 1);
-    mln_sha256_toBytes(&sha, (mln_u8ptr_t)(conn->localKey), PORTAL_KEY_LEN);
+    mln_sha256_tobytes(&sha, (mln_u8ptr_t)(conn->localKey), PORTAL_KEY_LEN);
     conn->remoteKey[0] = 0;
     if (mln_tcp_conn_init(&(conn->conn), sockfd)) {
         free(conn);
