@@ -1,7 +1,5 @@
-----------------
-
 ## Guide
-----------------
+
 Portal is a TCP Tunnel. It only support IPv4 now.
 
 It helps that a service on Internet to fetch sets of data from an Intranet service. This is its common usage case. Besides that, it can help to build up a tunnel across many servers (whether or not on Internet) for decreasing network delay.
@@ -12,14 +10,12 @@ It helps that a service on Internet to fetch sets of data from an Intranet servi
 * Run
 
 ## Environment
-----------------
 
 Portal is tested on Ubuntu 16.04 x86_64. It is written in C, so we need a C compiler (most Linux distribution already installed).
 
 Portal only can working on Linux now, so you may need a Linux server to install it.
 
 ## Install
-----------------
 
 Installation is very easy, just one command.
 
@@ -33,13 +29,9 @@ The target execute file will be built in current directory (portal/).
 
 ## Configure
 
-----------------
-
 ### Where is configuration file
 
-In Portal directory, there are two configuration files, *melon.conf.srv* and *melon.conf.cli*.
-
-*melon.conf.srv* is server's configuration file and *melon.conf.cli* is client's.
+There are five configuration files under directory `confs`.
 
 ### Configuration format
 
@@ -116,28 +108,30 @@ portal {
 
 ## Run
 
-----------------
+There are five modes of Portal manipulated by configuration file.
 
-How to run Portal.
+- tunnel server
 
-In its configuration file, we can see some configuration items can modify system limitations. Which means, we have to start it up with *root*.
+- tunnel client
 
-After initialization, the uid of the process will be modified to the user that assigned by configuration item *user*.
+- proxy server
 
-After all preparations, you can run our script file to start up.
+- proxy client
+
+- broadcaster
+
+You can find these configuration templates in directory `confs`.
+
+If we execute
 
 ```
-sudo ./startup type
+./portal
 ```
 
-*type* has 5 values can be chosen:
+Program will try to look for the configuration file in Melon's (core framework) installation directory.
 
-​	*proxy_server* — this type will indicate portal to be started up as a proxy server
+So, we can designate the configuration file path through the `-c` parameter.
 
-​	*proxy_client* — this type will indicate portal to be started up as a proxy client
-
-​	*tunnel_server* — this type will indicate portal to be started up as a tunnel server
-
-​	*tunnel_client* — this type will indicate portal to be started up as a tunnel client
-
-​	*broadcaster* — this type will indicate portal to be started up as a broadcaster
+```
+./portal -c /.../path/to/conf
+```

@@ -27,6 +27,7 @@ mln_sauto_t gInnerTimeout;
 mln_sauto_t gOuterTimeout;
 mln_sauto_t gRetryTimeout;
 mln_string_t *gAs;
+char *gConfPath = NULL;
 
 
 static char mln_domain_portal[] = "portal";
@@ -49,17 +50,60 @@ static char mln_cmd_as_tunnel[] = "tunnel";
 static char mln_cmd_as_proxy[] = "proxy";
 static char mln_cmd_as_broadcaster[] = "broadcaster";
 
+static void portal_args_parse(int argc, char *argv[]);
+static char *portal_path_conf(void);
 static int mln_global_init(void);
 static void mln_worker_process(mln_event_t *ev);
 
 int main(int argc, char *argv[])
 {
+    portal_args_parse(argc, argv);
     struct mln_core_attr cattr;
     cattr.argc = argc;
     cattr.argv = argv;
     cattr.global_init = mln_global_init;
     cattr.worker_process = mln_worker_process;
     return mln_core_init(&cattr);
+}
+
+static void portal_args_parse(int argc, char *argv[])
+{
+    int i, len;
+    for (i = 1; i < argc; ++i) {
+        len = strlen(argv[i]);
+        if (argv[i][0] == '-' && len == 2) {
+            switch (argv[i][1]) {
+                case 'c':
+                    if (i + 1 >= argc) {
+                        fprintf(stderr, "Lack of configuration path\n");
+                        exit(1);
+                    }
+                    gConfPath = argv[++i];
+                    mln_path_hook_set(m_p_conf, portal_path_conf);
+                    break;
+                case 'v':
+                    printf("Version 1.0.0\n");
+                    exit(0);
+                case 'h':
+                    printf("%s [-c conf_path | -h | -v]\n", argv[0]);
+                    printf("-c\tdesignate configuration file path\n");
+                    printf("-h\tshow help information\n");
+                    printf("-v\tshow version\n");
+                    exit(0);
+                default:
+                    fprintf(stderr, "Parameter [-%c] not supported\n", argv[i][1]);
+                    exit(1);
+            }
+            continue;
+        }
+        fprintf(stderr, "Parameter [%s] not supported\n", argv[i]);
+        exit(1);
+    }
+}
+
+static char *portal_path_conf(void)
+{
+    return gConfPath;
 }
 
 static int mln_global_init(void)
