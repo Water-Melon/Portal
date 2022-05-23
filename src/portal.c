@@ -62,6 +62,7 @@ int main(int argc, char *argv[])
     cattr.argc = argc;
     cattr.argv = argv;
     cattr.global_init = mln_global_init;
+    cattr.master_process = NULL;
     cattr.worker_process = mln_worker_process;
     return mln_core_init(&cattr);
 }
