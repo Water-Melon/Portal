@@ -169,7 +169,7 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
     ev_fd_handler handler = gIsServer? portal_proxy_raw_recv_handler: portal_proxy_msg_recv_handler;
     mln_u16_t port = gIsServer? gOuterPort: gInnerPort;
     portal_channel_t *ch = (portal_channel_t *)data;
-    int acceptFd = mln_tcp_conn_get_fd(portal_connection_getTcpConn(ch->accept));
+    int acceptFd = mln_tcp_conn_fd_get(portal_connection_getTcpConn(ch->accept));
     conn_type_t type = gIsServer? outer: inner;
     socklen_t len = sizeof(err);
     portal_connection_t *conn;
@@ -259,7 +259,7 @@ static void portal_proxy_raw_recv_handler(mln_event_t *ev, int fd, void *data)
         }
         mln_tcp_conn_append(peerTcpConn, trans, M_C_SEND);
         mln_event_set_fd(ev, \
-                         mln_tcp_conn_get_fd(peerTcpConn), \
+                         mln_tcp_conn_fd_get(peerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
                          peerConn, \
@@ -296,14 +296,14 @@ again:
     ret = portal_msg_chain2msg(&c, msg);
     if (ret == PORTAL_MSG_RET_OK) {
         if (msg->type == PORTAL_MSG_TYPE_DATA) {
-            if ((trans = portal_msg_extractFromMsg(mln_tcp_conn_get_pool(peerConn), msg)) == NULL) {
+            if ((trans = portal_msg_extractFromMsg(mln_tcp_conn_pool_get(peerConn), msg)) == NULL) {
                 if (c != NULL) mln_chain_pool_release_all(c);
                 portal_proxy_close_handler(ev, fd, data);
                 return;
             }
             mln_tcp_conn_append(peerTcpConn, trans, M_C_SEND);
             mln_event_set_fd(ev, \
-                             mln_tcp_conn_get_fd(peerTcpConn), \
+                             mln_tcp_conn_fd_get(peerTcpConn), \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
                              peerConn, \
@@ -345,13 +345,13 @@ static void portal_proxy_close_handler(mln_event_t *ev, int fd, void *data)
     close(fd);
     if (peerConn != NULL) {
         mln_tcp_conn_t *peerTcpConn = portal_connection_getTcpConn(peerConn);
-        if (mln_tcp_conn_get_head(peerTcpConn, M_C_SEND) == NULL) {
-            portal_proxy_close_handler(ev, mln_tcp_conn_get_fd(peerTcpConn), peerConn);
+        if (mln_tcp_conn_head(peerTcpConn, M_C_SEND) == NULL) {
+            portal_proxy_close_handler(ev, mln_tcp_conn_fd_get(peerTcpConn), peerConn);
         } else {
             portal_connection_setClose(peerConn, 0, 0);
-            shutdown(mln_tcp_conn_get_fd(peerTcpConn), SHUT_RD);
+            shutdown(mln_tcp_conn_fd_get(peerTcpConn), SHUT_RD);
             mln_event_set_fd(ev, \
-                             mln_tcp_conn_get_fd(peerTcpConn), \
+                             mln_tcp_conn_fd_get(peerTcpConn), \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
                              peerConn, \
@@ -371,7 +371,7 @@ static void portal_proxy_send_handler(mln_event_t *ev, int fd, void *data)
     if (rc == M_C_FINISH || rc == M_C_NOTYET) {
         c = mln_tcp_conn_remove(tcpConn, M_C_SENT);
         mln_chain_pool_release_all(c);
-        if (mln_tcp_conn_get_head(tcpConn, M_C_SEND) != NULL) {
+        if (mln_tcp_conn_head(tcpConn, M_C_SEND) != NULL) {
             mln_event_set_fd(ev, \
                              fd, \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \

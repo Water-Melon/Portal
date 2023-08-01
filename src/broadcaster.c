@@ -187,7 +187,7 @@ again:
         portal_broadcaster_close_handler(ev, fd, data);
         return;
     }
-    if (mln_tcp_conn_get_head(tcpConn, M_C_SEND) == NULL) {
+    if (mln_tcp_conn_head(tcpConn, M_C_SEND) == NULL) {
         mln_event_set_fd(ev, \
                          fd, \
                          M_EV_RECV|M_EV_NONBLOCK, \
@@ -222,7 +222,7 @@ static void portal_broadcaster_send_handler(mln_event_t *ev, int fd, void *data)
     if (rc == M_C_FINISH || rc == M_C_NOTYET) {
         c = mln_tcp_conn_remove(tcpConn, M_C_SENT);
         mln_chain_pool_release_all(c);
-        if (mln_tcp_conn_get_head(tcpConn, M_C_SEND) != NULL) {
+        if (mln_tcp_conn_head(tcpConn, M_C_SEND) != NULL) {
             mln_event_set_fd(ev, \
                              fd, \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
@@ -263,7 +263,7 @@ static int portal_broadcaster_broadcast(mln_rbtree_node_t *node, void *rn_data, 
     }
     mln_tcp_conn_append(tcpConn, c, M_C_SEND);
     mln_event_set_fd(bt->ev, \
-                     mln_tcp_conn_get_fd(tcpConn), \
+                     mln_tcp_conn_fd_get(tcpConn), \
                      M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                      M_EV_UNLIMITED, \
                      conn, \

@@ -110,7 +110,7 @@ static char *portal_path_conf(void)
 static int mln_global_init(void)
 {
     struct mln_rbtree_attr rbattr;
-    mln_conf_t *cf = mln_get_conf();
+    mln_conf_t *cf = mln_conf();
     mln_conf_domain_t *cd = cf->search(cf, "main");
     mln_conf_cmd_t *cc;
     mln_conf_item_t *ci;

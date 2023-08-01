@@ -179,7 +179,7 @@ static void portal_client_connect_test(mln_event_t *ev, int fd, void *data, conn
         if (msg->type != PORTAL_MSG_TYPE_ESTABLISH) {
             if (portal_client_sortAndBuildChain(ev, conn, msg) < 0) {
                 mln_tcp_conn_t *tcpConn = portal_connection_getTcpConn(conn);
-                portal_client_close_handler(ev, mln_tcp_conn_get_fd(tcpConn), conn);
+                portal_client_close_handler(ev, mln_tcp_conn_fd_get(tcpConn), conn);
             }
             fdClose_dataSet_free(dataSet);
         } else {
@@ -251,7 +251,7 @@ static void portal_client_outer_recv_handler(mln_event_t *ev, int fd, void *data
         }
         mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
         mln_event_set_fd(ev, \
-                         mln_tcp_conn_get_fd(innerTcpConn), \
+                         mln_tcp_conn_fd_get(innerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
                          innerConn, \
@@ -312,7 +312,7 @@ newconn:
                     outerConn = (portal_connection_t *)(rn->data);
                     if (portal_client_sortAndBuildChain(ev, outerConn, msg) < 0) {
                         mln_tcp_conn_t *outerTcpConn = portal_connection_getTcpConn(outerConn);
-                        portal_client_close_handler(ev, mln_tcp_conn_get_fd(outerTcpConn), outerConn);
+                        portal_client_close_handler(ev, mln_tcp_conn_fd_get(outerTcpConn), outerConn);
                     }
                 }
             }
@@ -331,7 +331,7 @@ newconn:
             }
             mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
             mln_event_set_fd(ev, \
-                             mln_tcp_conn_get_fd(innerTcpConn), \
+                             mln_tcp_conn_fd_get(innerTcpConn), \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
                              innerConn, \
@@ -346,9 +346,9 @@ newconn:
                 outerTcpConn = portal_connection_getTcpConn(outerConn);
                 if (outerConn->rcvSeqHigh == msg->seqHigh && \
                     outerConn->rcvSeqLow == msg->seqLow && \
-                    mln_tcp_conn_get_head(outerTcpConn, M_C_SEND) == NULL)
+                    mln_tcp_conn_head(outerTcpConn, M_C_SEND) == NULL)
                 {
-                    portal_client_close_handler(ev, mln_tcp_conn_get_fd(outerTcpConn), outerConn);
+                    portal_client_close_handler(ev, mln_tcp_conn_fd_get(outerTcpConn), outerConn);
                 } else {
                     portal_connection_setClose(outerConn, msg->seqHigh, msg->seqLow);
                 }
@@ -391,7 +391,7 @@ static void portal_client_send_handler(mln_event_t *ev, int fd, void *data)
     if (rc == M_C_FINISH || rc == M_C_NOTYET) {
         c = mln_tcp_conn_remove(tcpConn, M_C_SENT);
         mln_chain_pool_release_all(c);
-        if (mln_tcp_conn_get_head(tcpConn, M_C_SEND) != NULL) {
+        if (mln_tcp_conn_head(tcpConn, M_C_SEND) != NULL) {
             mln_event_set_fd(ev, \
                              fd, \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
@@ -450,7 +450,7 @@ static void portal_client_inner_ping_handler(mln_event_t *ev, int fd, void *data
     }
     mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
     mln_event_set_fd(ev, \
-                     mln_tcp_conn_get_fd(innerTcpConn), \
+                     mln_tcp_conn_fd_get(innerTcpConn), \
                      M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                      M_EV_UNLIMITED, \
                      innerConn, \
@@ -493,7 +493,7 @@ static void portal_client_close_handler(mln_event_t *ev, int fd, void *data)
         }
         mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
         mln_event_set_fd(ev, \
-                         mln_tcp_conn_get_fd(innerTcpConn), \
+                         mln_tcp_conn_fd_get(innerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
                          innerConn, \
@@ -532,7 +532,7 @@ static int portal_client_sortAndBuildChain(mln_event_t *ev, portal_connection_t 
     if (c != NULL) {
         mln_tcp_conn_append_chain(outerTcpConn, c, NULL, M_C_SEND);
         mln_event_set_fd(ev, \
-                         mln_tcp_conn_get_fd(outerTcpConn), \
+                         mln_tcp_conn_fd_get(outerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
                          outerConn, \

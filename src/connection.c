@@ -70,7 +70,7 @@ portal_connection_t *portal_connection_new(int sockfd, char *ip, mln_u16_t port,
         return NULL;
     }
     portal_msg_init(&(conn->msg));
-    conn->pool = mln_tcp_conn_get_pool(&(conn->conn));
+    conn->pool = mln_tcp_conn_pool_get(&(conn->conn));
     conn->msgTail = conn->msgHead = NULL;
     conn->sndSeqHigh = 0;
     conn->sndSeqLow = 0;
@@ -170,9 +170,9 @@ void portal_connection_moveChain(mln_event_t *ev, portal_connection_t *src, ev_f
     mln_chain_t *sntHead = NULL, *sntTail = NULL;
     mln_chain_t *c, *move;
     mln_tcp_conn_t *srcTcpConn = &(src->conn), *destTcpConn = &(dest->conn);
-    mln_alloc_t *pool = mln_tcp_conn_get_pool(destTcpConn);
+    mln_alloc_t *pool = mln_tcp_conn_pool_get(destTcpConn);
 
-    c = mln_tcp_conn_get_head(srcTcpConn, M_C_RECV);
+    c = mln_tcp_conn_head(srcTcpConn, M_C_RECV);
     for (; c != NULL; c = c->next) {
         if (c->buf != NULL && (size = mln_buf_left_size(c->buf))) {
             buf = (mln_u8ptr_t)mln_alloc_m(pool, size);
@@ -200,7 +200,7 @@ void portal_connection_moveChain(mln_event_t *ev, portal_connection_t *src, ev_f
         }
     }
 
-    c = mln_tcp_conn_get_head(srcTcpConn, M_C_SEND);
+    c = mln_tcp_conn_head(srcTcpConn, M_C_SEND);
     for (; c != NULL; c = c->next) {
         if (c->buf != NULL && (size = mln_buf_left_size(c->buf))) {
             buf = (mln_u8ptr_t)mln_alloc_m(pool, size);
@@ -228,7 +228,7 @@ void portal_connection_moveChain(mln_event_t *ev, portal_connection_t *src, ev_f
         }
     }
 
-    c = mln_tcp_conn_get_head(srcTcpConn, M_C_SENT);
+    c = mln_tcp_conn_head(srcTcpConn, M_C_SENT);
     for (; c != NULL; c = c->next) {
         if (c->buf != NULL && (size = mln_buf_left_size(c->buf))) {
             buf = (mln_u8ptr_t)mln_alloc_m(pool, size);
@@ -258,15 +258,15 @@ void portal_connection_moveChain(mln_event_t *ev, portal_connection_t *src, ev_f
 
     if (rcvHead != NULL) {
         mln_tcp_conn_append_chain(destTcpConn, rcvHead, rcvTail, M_C_RECV);
-        recv(ev, mln_tcp_conn_get_fd(destTcpConn), dest);
+        recv(ev, mln_tcp_conn_fd_get(destTcpConn), dest);
     }
     if (sntHead != NULL) {
         mln_tcp_conn_append_chain(destTcpConn, sntHead, sntTail, M_C_SEND);
-        send(ev, mln_tcp_conn_get_fd(destTcpConn), dest);
+        send(ev, mln_tcp_conn_fd_get(destTcpConn), dest);
     }
     if (sndHead != NULL) {
         mln_tcp_conn_append_chain(destTcpConn, sndHead, sndTail, M_C_SEND);
-        send(ev, mln_tcp_conn_get_fd(destTcpConn), dest);
+        send(ev, mln_tcp_conn_fd_get(destTcpConn), dest);
     }
     return;
 err:
@@ -326,7 +326,7 @@ int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message
         if (scan->seqHigh != conn->rcvSeqHigh || scan->seqLow != conn->rcvSeqLow) {
             break;
         }
-        c = portal_msg_extractFromMsg(mln_tcp_conn_get_pool(tcpConn), scan);
+        c = portal_msg_extractFromMsg(mln_tcp_conn_pool_get(tcpConn), scan);
         if (c == NULL) {
             if (c_head != NULL) mln_chain_pool_release_all(c_head);
             return -1;
