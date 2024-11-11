@@ -8,6 +8,8 @@
 #include "proxy.h"
 #include "broadcaster.h"
 #include "connection.h"
+#include "mln_framework.h"
+#include "mln_path.h"
 
 /*
  * global variables
@@ -58,13 +60,14 @@ static void mln_worker_process(mln_event_t *ev);
 int main(int argc, char *argv[])
 {
     portal_args_parse(argc, argv);
-    struct mln_core_attr cattr;
-    cattr.argc = argc;
-    cattr.argv = argv;
-    cattr.global_init = mln_global_init;
-    cattr.master_process = NULL;
-    cattr.worker_process = mln_worker_process;
-    return mln_core_init(&cattr);
+    struct mln_framework_attr fattr;
+    fattr.argc = argc;
+    fattr.argv = argv;
+    fattr.global_init = mln_global_init;
+    fattr.main_thread = NULL;
+    fattr.master_process = NULL;
+    fattr.worker_process = mln_worker_process;
+    return mln_framework_init(&fattr);
 }
 
 static void portal_args_parse(int argc, char *argv[])
@@ -327,11 +330,11 @@ static int mln_global_init(void)
     /*sets*/
     rbattr.cmp = (rbtree_cmp)portal_connection_cmp;
     rbattr.data_free = (rbtree_free_data)portal_connection_free;
-    if ((gOuterSet = mln_rbtree_init(&rbattr)) == NULL) {
+    if ((gOuterSet = mln_rbtree_new(&rbattr)) == NULL) {
         fprintf(stderr, "No memory.\n");
         return -1;
     }
-    if ((gInnerSet = mln_rbtree_init(&rbattr)) == NULL) {
+    if ((gInnerSet = mln_rbtree_new(&rbattr)) == NULL) {
         fprintf(stderr, "No memory.\n");
         return -1;
     }
@@ -351,6 +354,4 @@ static void mln_worker_process(mln_event_t *ev)
         exit(1);
     }
 }
-
-
 

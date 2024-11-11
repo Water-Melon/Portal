@@ -54,7 +54,7 @@ void portal_proxy_entrance(mln_event_t *ev)
     }
 
     /*ev*/
-    if (mln_event_set_fd(ev, \
+    if (mln_event_fd_set(ev, \
                          fd, \
                          M_EV_RECV|M_EV_NONBLOCK, \
                          M_EV_UNLIMITED, \
@@ -97,7 +97,7 @@ static void portal_proxy_accept_handler(mln_event_t *ev, int fd, void *data)
             close(connfd);
             break;
         }
-        if (mln_event_set_fd(ev, \
+        if (mln_event_fd_set(ev, \
                              connfd, \
                              M_EV_RECV|M_EV_NONBLOCK|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
@@ -148,7 +148,7 @@ static int portal_proxy_connect(mln_event_t *ev, portal_channel_t *ch)
         close(sockfd);
         return -1;
     }
-    if (mln_event_set_fd(ev, \
+    if (mln_event_fd_set(ev, \
                          sockfd, \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
@@ -176,7 +176,7 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
 
     if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0) {
         mln_log(error, "getsockopt error. %s\n", strerror(errno));
-        mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
+        mln_event_fd_set(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
         close(fd);
         portal_proxy_close_handler(ev, acceptFd, ch->accept);
         return;
@@ -184,12 +184,12 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
     if (err) {
         if (err != EINPROGRESS) {
             mln_log(error, "connect error. %s\n", strerror(err));
-            mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
+            mln_event_fd_set(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
             close(fd);
             portal_proxy_close_handler(ev, acceptFd, ch->accept);
             return;
         }
-        mln_event_set_fd(ev, \
+        mln_event_fd_set(ev, \
                          fd, \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
@@ -200,31 +200,31 @@ static void portal_proxy_connect_test(mln_event_t *ev, int fd, void *data)
 
     if ((conn = portal_connection_new(fd, ip, port, type)) == NULL) {
         mln_log(error, "No memory or hash key conflict.\n");
-        mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
+        mln_event_fd_set(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
         close(fd);
         portal_proxy_close_handler(ev, acceptFd, ch->accept);
         return;
     }
     portal_channel_setConnect(ch, conn);
     portal_connection_setChannel(conn, ch);
-    mln_event_set_fd(ev, \
+    mln_event_fd_set(ev, \
                      fd, \
                      M_EV_RECV|M_EV_NONBLOCK, \
                      gIsServer? gOuterTimeout: gInnerTimeout, \
                      conn, \
                      handler);
     if ((gIsServer? gOuterTimeout: gInnerTimeout) >= 0) {
-        mln_event_set_fd_timeout_handler(ev, fd, conn, portal_proxy_close_handler);
+        mln_event_fd_timeout_handler_set(ev, fd, conn, portal_proxy_close_handler);
     }
     handler = gIsServer? portal_proxy_msg_recv_handler: portal_proxy_raw_recv_handler;
-    mln_event_set_fd(ev, \
+    mln_event_fd_set(ev, \
                      acceptFd, \
                      M_EV_RECV|M_EV_NONBLOCK, \
                      gIsServer? gInnerTimeout: gOuterTimeout, \
                      ch->accept, \
                      handler);
     if ((gIsServer? gInnerTimeout: gOuterTimeout) >= 0) {
-        mln_event_set_fd_timeout_handler(ev, acceptFd, ch->accept, portal_proxy_close_handler);
+        mln_event_fd_timeout_handler_set(ev, acceptFd, ch->accept, portal_proxy_close_handler);
     }
 }
 
@@ -258,7 +258,7 @@ static void portal_proxy_raw_recv_handler(mln_event_t *ev, int fd, void *data)
             return;
         }
         mln_tcp_conn_append(peerTcpConn, trans, M_C_SEND);
-        mln_event_set_fd(ev, \
+        mln_event_fd_set(ev, \
                          mln_tcp_conn_fd_get(peerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
@@ -302,7 +302,7 @@ again:
                 return;
             }
             mln_tcp_conn_append(peerTcpConn, trans, M_C_SEND);
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              mln_tcp_conn_fd_get(peerTcpConn), \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
@@ -340,7 +340,7 @@ static void portal_proxy_close_handler(mln_event_t *ev, int fd, void *data)
                                         conn->channel->connect: \
                                         conn->channel->accept;
 
-    mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
+    mln_event_fd_set(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
     portal_connection_free(conn);
     close(fd);
     if (peerConn != NULL) {
@@ -350,7 +350,7 @@ static void portal_proxy_close_handler(mln_event_t *ev, int fd, void *data)
         } else {
             portal_connection_setClose(peerConn, 0, 0);
             shutdown(mln_tcp_conn_fd_get(peerTcpConn), SHUT_RD);
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              mln_tcp_conn_fd_get(peerTcpConn), \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
@@ -372,7 +372,7 @@ static void portal_proxy_send_handler(mln_event_t *ev, int fd, void *data)
         c = mln_tcp_conn_remove(tcpConn, M_C_SENT);
         mln_chain_pool_release_all(c);
         if (mln_tcp_conn_head(tcpConn, M_C_SEND) != NULL) {
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              fd, \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
@@ -402,14 +402,14 @@ static void portal_proxy_send_handler(mln_event_t *ev, int fd, void *data)
                     timeout = gInnerTimeout;
                 }
             }
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              fd, \
                              M_EV_RECV|M_EV_NONBLOCK, \
                              timeout, \
                              data, \
                              handler);
             if (timeout >= 0) {
-                mln_event_set_fd_timeout_handler(ev, fd, data, portal_proxy_close_handler);
+                mln_event_fd_timeout_handler_set(ev, fd, data, portal_proxy_close_handler);
             }
         }
     } else if (rc == M_C_ERROR) {

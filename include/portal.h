@@ -4,7 +4,6 @@
 #ifndef __PORTAL_H
 #define __PORTAL_H
 
-#include "mln_core.h"
 #include "mln_conf.h"
 #include "mln_rbtree.h"
 #include "mln_sha.h"

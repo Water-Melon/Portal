@@ -10,19 +10,20 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "mln_utils.h"
 
 static mln_u64_t nConn = 0;
 static portal_connection_t *connHead = NULL;
 static portal_connection_t *connTail = NULL;
 static portal_connection_t *connCur = NULL;
 
-MLN_CHAIN_FUNC_DECLARE(portal_connection, \
+MLN_CHAIN_FUNC_DECLARE(static inline, \
+                       portal_connection, \
                        portal_connection_t, \
-                       static inline void, \
                        __NONNULL3(1,2,3));
-MLN_CHAIN_FUNC_DECLARE(portal_message, \
+MLN_CHAIN_FUNC_DECLARE(static inline, \
+                       portal_message, \
                        portal_message_t, \
-                       static inline void, \
                        __NONNULL3(1,2,3));
 
 portal_channel_t *portal_channel_new(void)
@@ -346,14 +347,14 @@ int portal_connection_addMsgBuildChain(portal_connection_t *conn, portal_message
     return 0;
 }
 
-MLN_CHAIN_FUNC_DEFINE(portal_connection, \
+MLN_CHAIN_FUNC_DEFINE(static inline, \
+                      portal_connection, \
                       portal_connection_t, \
-                      static inline void, \
                       prev, \
                       next);
-MLN_CHAIN_FUNC_DEFINE(portal_message, \
+MLN_CHAIN_FUNC_DEFINE(static inline, \
+                      portal_message, \
                       portal_message_t, \
-                      static inline void, \
                       prev, \
                       next);
 

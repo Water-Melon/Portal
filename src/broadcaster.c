@@ -24,7 +24,7 @@ static void portal_broadcaster_accept_handler(mln_event_t *ev, int fd, void *dat
 static void portal_broadcaster_msg_recv_handler(mln_event_t *ev, int fd, void *data);
 static void portal_broadcaster_close_handler(mln_event_t *ev, int fd, void *data);
 static void portal_broadcaster_send_handler(mln_event_t *ev, int fd, void *data);
-static int portal_broadcaster_broadcast(mln_rbtree_node_t *node, void *rn_data, void *udata);
+static int portal_broadcaster_broadcast(mln_rbtree_node_t *node, void *udata);
 
 void portal_broadcaster_entrance(mln_event_t *ev)
 {
@@ -58,7 +58,7 @@ void portal_broadcaster_entrance(mln_event_t *ev)
     }
 
     /*ev*/
-    if (mln_event_set_fd(ev, \
+    if (mln_event_fd_set(ev, \
                          fd, \
                          M_EV_RECV|M_EV_NONBLOCK, \
                          M_EV_UNLIMITED, \
@@ -100,7 +100,7 @@ static void portal_broadcaster_accept_handler(mln_event_t *ev, int fd, void *dat
             close(connfd);
             break;
         }
-        rn = mln_rbtree_search(gInnerSet, gInnerSet->root, conn);
+        rn = mln_rbtree_search(gInnerSet, conn);
         if (!mln_rbtree_null(rn, gInnerSet)) {
             portal_connection_free(conn);
             mln_log(error, "Connection key conflict.\n");
@@ -115,7 +115,7 @@ static void portal_broadcaster_accept_handler(mln_event_t *ev, int fd, void *dat
         }
         mln_rbtree_insert(gInnerSet, rn);
 
-        if (mln_event_set_fd(ev, \
+        if (mln_event_fd_set(ev, \
                              connfd, \
                              M_EV_RECV|M_EV_NONBLOCK, \
                              gInnerTimeout, \
@@ -129,7 +129,7 @@ static void portal_broadcaster_accept_handler(mln_event_t *ev, int fd, void *dat
             break;
         }
         if (gInnerTimeout >= 0) {
-            mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_broadcaster_close_handler);
+            mln_event_fd_timeout_handler_set(ev, connfd, conn, portal_broadcaster_close_handler);
         }
 
         mln_log(report, "%s %s:%u Connected.\n", type==inner?"Inner":"Outer", ip, port);
@@ -161,7 +161,7 @@ again:
             bt.sender = conn;
             bt.msg = msg;
             bt.ev = ev;
-            mln_rbtree_scan_all(gInnerSet, portal_broadcaster_broadcast, &bt);
+            mln_rbtree_iterate(gInnerSet, portal_broadcaster_broadcast, &bt);
         } else {
             mln_log(error, "Shouldn't be this type. %x\n", msg->type);
             if (c != NULL) mln_chain_pool_release_all(c);
@@ -188,14 +188,14 @@ again:
         return;
     }
     if (mln_tcp_conn_head(tcpConn, M_C_SEND) == NULL) {
-        mln_event_set_fd(ev, \
+        mln_event_fd_set(ev, \
                          fd, \
                          M_EV_RECV|M_EV_NONBLOCK, \
                          gInnerTimeout, \
                          data, \
                          portal_broadcaster_msg_recv_handler);
         if (gInnerTimeout >= 0) {
-            mln_event_set_fd_timeout_handler(ev, fd, data, portal_broadcaster_close_handler);
+            mln_event_fd_timeout_handler_set(ev, fd, data, portal_broadcaster_close_handler);
         }
     }
 }
@@ -204,8 +204,8 @@ static void portal_broadcaster_close_handler(mln_event_t *ev, int fd, void *data
 {
     mln_rbtree_node_t *rn;
     portal_connection_t *conn = (portal_connection_t *)data;
-    mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
-    rn = mln_rbtree_search(gInnerSet, gInnerSet->root, conn);
+    mln_event_fd_set(ev, fd, M_EV_CLR, M_EV_UNLIMITED, NULL, NULL);
+    rn = mln_rbtree_search(gInnerSet, conn);
     mln_rbtree_delete(gInnerSet, rn);
     mln_rbtree_node_free(gInnerSet, rn);
     close(fd);
@@ -223,21 +223,21 @@ static void portal_broadcaster_send_handler(mln_event_t *ev, int fd, void *data)
         c = mln_tcp_conn_remove(tcpConn, M_C_SENT);
         mln_chain_pool_release_all(c);
         if (mln_tcp_conn_head(tcpConn, M_C_SEND) != NULL) {
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              fd, \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
                              data, \
                              portal_broadcaster_send_handler);
         } else {
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              fd, \
                              M_EV_RECV|M_EV_NONBLOCK, \
                              gInnerTimeout, \
                              data, \
                              portal_broadcaster_msg_recv_handler);
             if (gInnerTimeout >= 0) {
-                mln_event_set_fd_timeout_handler(ev, fd, data, portal_broadcaster_close_handler);
+                mln_event_fd_timeout_handler_set(ev, fd, data, portal_broadcaster_close_handler);
             }
         }
     } else if (rc == M_C_ERROR) {
@@ -248,10 +248,10 @@ static void portal_broadcaster_send_handler(mln_event_t *ev, int fd, void *data)
     }
 }
 
-static int portal_broadcaster_broadcast(mln_rbtree_node_t *node, void *rn_data, void *udata)
+static int portal_broadcaster_broadcast(mln_rbtree_node_t *node, void *udata)
 {
     mln_chain_t *c;
-    portal_connection_t *conn = (portal_connection_t *)rn_data;
+    portal_connection_t *conn = (portal_connection_t *)mln_rbtree_node_data_get(node);
     mln_tcp_conn_t *tcpConn = portal_connection_getTcpConn(conn);
     struct broadcaster_toolset *bt = (struct broadcaster_toolset *)udata;
 
@@ -262,7 +262,7 @@ static int portal_broadcaster_broadcast(mln_rbtree_node_t *node, void *rn_data, 
         return 0;
     }
     mln_tcp_conn_append(tcpConn, c, M_C_SEND);
-    mln_event_set_fd(bt->ev, \
+    mln_event_fd_set(bt->ev, \
                      mln_tcp_conn_fd_get(tcpConn), \
                      M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                      M_EV_UNLIMITED, \

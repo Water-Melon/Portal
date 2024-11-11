@@ -16,11 +16,12 @@ OBJS		= \
 .PHONY :	compile install clean
 compile: build $(OBJS) $(PORTAL)
 clean:
-	rm -fr objs $(PORTAL) lib melon Melon
+	rm -fr objs $(PORTAL) melon Melon
 build :
-	bash build.sh
-$(PORTAL) : $(OBJS) melon/lib/libmelon.so
-	$(CC) -o $@ $(OBJS) -ggdb -Wall -lmelon -Llib/ -lpthread -lc
+	test -d $(PWD)/objs || mkdir $(PWD)/objs
+	test -d $(PWD)/Melon || git clone https://github.com/Water-Melon/Melon.git $(PWD)/Melon && cd $(PWD)/Melon && ./configure --prefix=$(PWD)/melon && make && make install
+$(PORTAL) : $(OBJS) melon/lib/libmelon_static.a
+	$(CC) -o $@ $(OBJS) -ggdb -Wall -lmelon_static -Lmelon/lib/ -lpthread -lc
 install:
 	test -d /usr/local/portal || mkdir -p /usr/local/portal
 	cp $(PORTAL) /usr/local/portal/

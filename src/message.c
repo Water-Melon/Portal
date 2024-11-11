@@ -7,7 +7,6 @@
 #include "mln_log.h"
 #include <stdlib.h>
 #include "mln_rc.h"
-#include "mln_global.h"
 
 portal_message_t *portal_message_dup(portal_message_t *src)
 {

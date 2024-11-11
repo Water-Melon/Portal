@@ -74,7 +74,7 @@ void portal_server_entrance(mln_event_t *ev)
     }
 
     /*ev*/
-    if (mln_event_set_fd(ev, \
+    if (mln_event_fd_set(ev, \
                          outerSock, \
                          M_EV_RECV|M_EV_NONBLOCK, \
                          M_EV_UNLIMITED, \
@@ -84,7 +84,7 @@ void portal_server_entrance(mln_event_t *ev)
         mln_log(error, "No memory.\n");
         abort();
     }
-    if (mln_event_set_fd(ev, \
+    if (mln_event_fd_set(ev, \
                          innerSock, \
                          M_EV_RECV|M_EV_NONBLOCK, \
                          M_EV_UNLIMITED, \
@@ -129,7 +129,7 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
             close(connfd);
             break;
         }
-        rn = mln_rbtree_search(gOuterSet, gOuterSet->root, conn);
+        rn = mln_rbtree_search(gOuterSet, conn);
         if (!mln_rbtree_null(rn, gOuterSet)) {
             portal_connection_free(conn);
             mln_log(error, "Connection key conflict.\n");
@@ -169,7 +169,7 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
             }
         }
 
-        if (mln_event_set_fd(ev, \
+        if (mln_event_fd_set(ev, \
                              connfd, \
                              M_EV_RECV|M_EV_NONBLOCK, \
                              gOuterTimeout, \
@@ -184,13 +184,13 @@ static void portal_server_outer_accept_handler(mln_event_t *ev, int fd, void *da
             break;
         }
         if (gOuterTimeout >= 0) {
-            mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_server_close_handler);
+            mln_event_fd_timeout_handler_set(ev, connfd, conn, portal_server_close_handler);
         }
 
         if (trans != NULL) {
             innerTcpConn = portal_connection_getTcpConn(innerConn);
             mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              mln_tcp_conn_fd_get(innerTcpConn), \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
@@ -242,7 +242,7 @@ static void portal_server_outer_recv_handler(mln_event_t *ev, int fd, void *data
             return;
         }
         mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
-        mln_event_set_fd(ev, \
+        mln_event_fd_set(ev, \
                          mln_tcp_conn_fd_get(innerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
@@ -258,14 +258,14 @@ static void portal_server_outer_recv_handler(mln_event_t *ev, int fd, void *data
         portal_server_close_handler(ev, fd, data);
     } else {
         if (mln_tcp_conn_head(outerTcpConn, M_C_SEND) == NULL) {
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              fd, \
                              M_EV_RECV|M_EV_NONBLOCK, \
                              gOuterTimeout, \
                              outerConn, \
                              portal_server_outer_recv_handler);
             if (gOuterTimeout >= 0) {
-                mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_close_handler);
+                mln_event_fd_timeout_handler_set(ev, fd, data, portal_server_close_handler);
             }
         }
     }
@@ -304,15 +304,15 @@ static void portal_server_close_handler(mln_event_t *ev, int fd, void *data)
             abort();
         }
         mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
-        mln_event_set_fd(ev, \
+        mln_event_fd_set(ev, \
                          mln_tcp_conn_fd_get(innerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
                          innerConn, \
                          portal_server_send_handler);
     }
-    mln_event_set_fd(ev, fd, M_EV_CLR, M_EV_UNLIMITED, conn, NULL);
-    rn = mln_rbtree_search(tree, tree->root, conn);
+    mln_event_fd_set(ev, fd, M_EV_CLR, M_EV_UNLIMITED, conn, NULL);
+    rn = mln_rbtree_search(tree, conn);
     if (!mln_rbtree_null(rn, tree)) {
         mln_rbtree_delete(tree, rn);
         mln_rbtree_node_free(tree, rn);
@@ -349,7 +349,7 @@ static void portal_server_inner_accept_handler(mln_event_t *ev, int fd, void *da
             close(connfd);
             break;
         }
-        rn = mln_rbtree_search(gInnerSet, gInnerSet->root, conn);
+        rn = mln_rbtree_search(gInnerSet, conn);
         if (!mln_rbtree_null(rn, gInnerSet)) {
             portal_connection_free(conn);
             mln_log(error, "Connection key conflict.\n");
@@ -363,7 +363,7 @@ static void portal_server_inner_accept_handler(mln_event_t *ev, int fd, void *da
             break;
         }
         mln_rbtree_insert(gInnerSet, rn);
-        if (mln_event_set_fd(ev, \
+        if (mln_event_fd_set(ev, \
                              connfd, \
                              M_EV_RECV|M_EV_NONBLOCK, \
                              gInnerTimeout, \
@@ -377,7 +377,7 @@ static void portal_server_inner_accept_handler(mln_event_t *ev, int fd, void *da
             break;
         }
         if (gInnerTimeout >= 0) {
-            mln_event_set_fd_timeout_handler(ev, connfd, conn, portal_server_inner_ping_handler);
+            mln_event_fd_timeout_handler_set(ev, connfd, conn, portal_server_inner_ping_handler);
         }
         mln_log(report, "Inner %s:%u Connected.\n", ip, port);
     }
@@ -402,7 +402,7 @@ static void portal_server_inner_ping_handler(mln_event_t *ev, int fd, void *data
         return;
     }
     mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
-    mln_event_set_fd(ev, \
+    mln_event_fd_set(ev, \
                      mln_tcp_conn_fd_get(innerTcpConn), \
                      M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                      M_EV_UNLIMITED, \
@@ -425,7 +425,7 @@ static int portal_server_sortAndBuildChain(mln_event_t *ev, portal_connection_t 
     }
     if (c != NULL) {
         mln_tcp_conn_append_chain(outerTcpConn, c, NULL, M_C_SEND);
-        mln_event_set_fd(ev, \
+        mln_event_fd_set(ev, \
                          mln_tcp_conn_fd_get(outerTcpConn), \
                          M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                          M_EV_UNLIMITED, \
@@ -455,7 +455,7 @@ again:
     if (ret == PORTAL_MSG_RET_OK) {
         if (msg->type == PORTAL_MSG_TYPE_DATA) {
             memcpy(tmp.localKey, msg->serverKey, PORTAL_KEY_LEN);
-            rn = mln_rbtree_search(gOuterSet, gOuterSet->root, &tmp);
+            rn = mln_rbtree_search(gOuterSet, &tmp);
             if (!mln_rbtree_null(rn, gOuterSet)) {
                 outerConn = (portal_connection_t *)(rn->data);
                 if (portal_server_sortAndBuildChain(ev, outerConn, msg) < 0) {
@@ -477,7 +477,7 @@ again:
                 return;
             }
             mln_tcp_conn_append(innerTcpConn, trans, M_C_SEND);
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              mln_tcp_conn_fd_get(innerTcpConn), \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
@@ -487,7 +487,7 @@ again:
             /*do nothing*/
         } else if (msg->type == PORTAL_MSG_TYPE_BYE) {
             memcpy(tmp.localKey, msg->serverKey, PORTAL_KEY_LEN);
-            rn = mln_rbtree_search(gOuterSet, gOuterSet->root, &tmp);
+            rn = mln_rbtree_search(gOuterSet, &tmp);
             if (!mln_rbtree_null(rn, gOuterSet)) {
                 outerConn = (portal_connection_t *)(rn->data);
                 outerTcpConn = portal_connection_getTcpConn(outerConn);
@@ -537,7 +537,7 @@ static void portal_server_send_handler(mln_event_t *ev, int fd, void *data)
         c = mln_tcp_conn_remove(tcpConn, M_C_SENT);
         mln_chain_pool_release_all(c);
         if (mln_tcp_conn_head(tcpConn, M_C_SEND) != NULL) {
-            mln_event_set_fd(ev, \
+            mln_event_fd_set(ev, \
                              fd, \
                              M_EV_SEND|M_EV_NONBLOCK|M_EV_APPEND|M_EV_ONESHOT, \
                              M_EV_UNLIMITED, \
@@ -549,24 +549,24 @@ static void portal_server_send_handler(mln_event_t *ev, int fd, void *data)
                 return;
             }
             if (portal_connection_getType(conn) == outer) {
-                mln_event_set_fd(ev, \
+                mln_event_fd_set(ev, \
                                  fd, \
                                  M_EV_RECV|M_EV_NONBLOCK, \
                                  gOuterTimeout, \
                                  data, \
                                  portal_server_outer_recv_handler);
                 if (gOuterTimeout >= 0) {
-                    mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_close_handler);
+                    mln_event_fd_timeout_handler_set(ev, fd, data, portal_server_close_handler);
                 }
             } else {
-                mln_event_set_fd(ev, \
+                mln_event_fd_set(ev, \
                                  fd, \
                                  M_EV_RECV|M_EV_NONBLOCK, \
                                  gInnerTimeout, \
                                  data, \
                                  portal_server_inner_recv_handler);
                 if (gInnerTimeout >= 0) {
-                    mln_event_set_fd_timeout_handler(ev, fd, data, portal_server_inner_ping_handler);
+                    mln_event_fd_timeout_handler_set(ev, fd, data, portal_server_inner_ping_handler);
                 }
             }
         }
